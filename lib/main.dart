@@ -1,33 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'My Home App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: HomePage(),
-    );
-  }
+  _MyAppState createState() => _MyAppState();
 }
 
-class HomePage extends StatefulWidget {
-  @override
-  _HomePageState createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  late MqttServerClient client;
-
+class _MyAppState extends State<MyApp> {
   final String server = 'super-author.cloudmqtt.com';
   final int port = 1883;
   final String username = 'tdmstjgu';
@@ -35,101 +21,139 @@ class _HomePageState extends State<HomePage> {
   String publishTopic = '/Danf/TESTE_2024/V3/Mqtt/Comando';
   String subscribeTopic = '/Danf/TESTE_2024/V3/Mqtt/Feedback';
 
+  MqttServerClient? client;
+  bool _connected = false;
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
     _connect();
   }
 
-  Future<void> _connect() async {
-    client = MqttServerClient.withPort(server, '#', port);
-    client.logging(on: true);
+  @override
+  void dispose() {
+    _timer?.cancel();
+    client?.disconnect();
+    super.dispose();
+  }
 
-    client.onConnected = onConnected;
-    client.onDisconnected = onDisconnected;
-    client.onSubscribed = onSubscribed;
-    client.onSubscribeFail = onSubscribeFail;
-    client.onUnsubscribed = onUnsubscribed;
-    client.onAutoReconnect = onAutoReconnect;
-    client.onAutoReconnected = onAutoReconnected;
+  Future<void> _connect() async {
+    client = MqttServerClient(server, '');
+    client!.port = port;
+    client!.logging(on: true);
+    client!.keepAlivePeriod = 20;
+    client!.onDisconnected = _onDisconnected;
+    client!.onConnected = _onConnected;
+    client!.onSubscribed = _onSubscribed;
 
     final connMessage = MqttConnectMessage()
         .withClientIdentifier('flutter_client')
-        .authenticateAs(username, password)
         .startClean()
+        .authenticateAs(username, password)
         .withWillQos(MqttQos.atLeastOnce);
-    client.connectionMessage = connMessage;
+
+    client!.connectionMessage = connMessage;
 
     try {
-      await client.connect();
-      _subscribeToFeedback();
-    } on Exception catch (e) {
+      await client!.connect(username, password);
+    } catch (e) {
       print('Exception: $e');
-      client.disconnect();
+      client!.disconnect();
     }
-  }
 
-  void _subscribeToFeedback() {
-    client.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? c) {
-      final recMess = c![0].payload as MqttPublishMessage;
-      final pt =
+    if (client!.connectionStatus!.state == MqttConnectionState.connected) {
+      print('MQTT client connected');
+      setState(() {
+        _connected = true;
+      });
+      _startSendingMessages();
+    } else {
+      print(
+          'ERROR: MQTT client connection failed - disconnecting, state is ${client!.connectionStatus!.state}');
+      client!.disconnect();
+    }
+
+    client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+      final String pt =
           MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
 
       print('Received message: $pt from topic: ${c[0].topic}>');
     });
 
-    client.subscribe(subscribeTopic, MqttQos.atLeastOnce);
+    _subscribeToTopic(subscribeTopic);
   }
 
-  void onConnected() {
+  void _subscribeToTopic(String topic) {
+    client!.subscribe(topic, MqttQos.atMostOnce);
+  }
+
+  void _startSendingMessages() {
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      _publish('SA');
+    });
+  }
+
+  void _onConnected() {
     print('Connected');
   }
 
-  void onDisconnected() {
+  void _onDisconnected() {
     print('Disconnected');
+    setState(() {
+      _connected = false;
+    });
   }
 
-  void onSubscribed(String topic) {
+  void _onSubscribed(String topic) {
     print('Subscribed to $topic');
   }
 
-  void onSubscribeFail(String topic) {
-    print('Failed to subscribe $topic');
-  }
-
-  void onUnsubscribed(String? topic) {
-    print('Unsubscribed from $topic');
-  }
-
-  void onAutoReconnect() {
-    print('Auto reconnect');
-  }
-
-  void onAutoReconnected() {
-    print('Auto reconnected');
-  }
-
-  void onAutoReconnecting() {
-    print('Auto reconnecting');
-  }
-
-  @override
-  void dispose() {
-    client.disconnect();
-    super.dispose();
+  Future<void> _publish(String message) async {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(message);
+    client!.publishMessage(publishTopic, MqttQos.atLeastOnce, builder.payload!);
   }
 
   @override
   Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: HomeScreen(),
+      routes: {
+        '/ambientes': (context) => AmbientesScreen(),
+        '/sala': (context) => SalaScreen(),
+        '/cozinha': (context) => CozinhaScreen(),
+        '/suite_master': (context) => SuiteMasterScreen(),
+        '/sala_lamp': (context) => SalaLampScreen(),
+        '/cozinha_lamp': (context) => CozinhaLampScreen(),
+        '/suite_master_lamp': (context) => SuiteMasterLampScreen(),
+        '/sala_ice': (context) => SalaIceScreen(),
+        '/cozinha_ice': (context) => CozinhaIceScreen(),
+        '/suite_master_ice': (context) => SuiteMasterIceScreen(),
+        '/sala_window': (context) => SalaWindowScreen(),
+        '/cozinha_window': (context) => CozinhaWindowScreen(),
+        '/suite_master_window': (context) => SuiteMasterWindowScreen(),
+      },
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[300],
+      appBar: AppBar(
+        title: Text('Tela Inicial'),
+      ),
       body: Center(
         child: ElevatedButton(
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => MenuPage(client)),
-            );
+            Navigator.pushNamed(context, '/ambientes');
           },
           child: Text('Entrar'),
         ),
@@ -138,448 +162,200 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class MenuPage extends StatelessWidget {
-  final MqttServerClient client;
-
-  MenuPage(this.client);
-
-  final List<String> rooms = [
-    "Sala",
-    "Cozinha",
-    "Quarto",
-    "Banheiro",
-    "Escritório"
-  ];
-
+class AmbientesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Menu'),
-        leading: BackButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
+        title: Text('Ambientes'),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(10.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AmbienteCard(
+                title: 'Sala',
+                lampRoute: '/sala_lamp',
+                iceRoute: '/sala_ice',
+                windowRoute: '/sala_window'),
+            AmbienteCard(
+                title: 'Cozinha',
+                lampRoute: '/cozinha_lamp',
+                iceRoute: '/cozinha_ice',
+                windowRoute: '/cozinha_window'),
+            AmbienteCard(
+                title: 'Suíte Master',
+                lampRoute: '/suite_master_lamp',
+                iceRoute: '/suite_master_ice',
+                windowRoute: '/suite_master_window'),
+            // Adicione mais abas conforme necessário
+          ],
         ),
       ),
-      backgroundColor: Colors.grey[300],
-      body: ListView.builder(
-        itemCount: rooms.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Card(
-              child: ListTile(
-                title: Text(rooms[index]),
-                trailing: IconButton(
-                  icon: Icon(Icons.lightbulb_outline),
-                  onPressed: () {
-                    String roomName = rooms[index];
-                    String publishTopic = '/Danf/TESTE_2024/V3/Mqtt/Comando';
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            getRoomPage(roomName, client, publishTopic),
-                      ),
-                    );
-                  },
-                ),
-              ),
+    );
+  }
+}
+
+class AmbienteCard extends StatelessWidget {
+  final String title;
+  final String lampRoute;
+  final String iceRoute;
+  final String windowRoute;
+
+  AmbienteCard(
+      {required this.title,
+      required this.lampRoute,
+      required this.iceRoute,
+      required this.windowRoute});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 16.0),
+      child: ListTile(
+        title: Text(
+          title,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(Icons.lightbulb_outline),
+              onPressed: () {
+                Navigator.pushNamed(context, lampRoute);
+              },
             ),
-          );
-        },
+            IconButton(
+              icon: Icon(Icons.ac_unit),
+              onPressed: () {
+                Navigator.pushNamed(context, iceRoute);
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.curtains_closed),
+              onPressed: () {
+                Navigator.pushNamed(context, windowRoute);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  Widget getRoomPage(
-      String roomName, MqttServerClient client, String publishTopic) {
-    switch (roomName) {
-      case "Sala":
-        return SalaPage(client: client, publishTopic: publishTopic);
-      case "Cozinha":
-        return CozinhaPage(client: client, publishTopic: publishTopic);
-      case "Quarto":
-        return QuartoPage(client: client, publishTopic: publishTopic);
-      default:
-        return Container(); // Página vazia caso não haja correspondência
-    }
-  }
 }
 
-class SalaPage extends StatefulWidget {
-  final MqttServerClient client;
-  final String publishTopic;
-
-  SalaPage({required this.client, required this.publishTopic});
-
-  @override
-  _SalaPageState createState() => _SalaPageState();
-}
-
-class _SalaPageState extends State<SalaPage> {
-  bool isLightOn = false;
-  TextEditingController _controller = TextEditingController(text: 'spot');
-
-  @override
-  void initState() {
-    super.initState();
-    _loadText();
-    _subscribeToFeedback();
-  }
-
-  void _loadText() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _controller.text = prefs.getString('Sala') ?? 'spot';
-    });
-  }
-
-  void _saveText() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('Sala', _controller.text);
-  }
-
-  void _publishMessage(String message) {
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(message);
-    widget.client.publishMessage(
-      widget.publishTopic,
-      MqttQos.atLeastOnce,
-      builder.payload!,
-    );
-    print('Mensagem publicada para Sala: $message');
-  }
-
-  void _subscribeToFeedback() {
-    widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? c) {
-      final recMess = c![0].payload as MqttPublishMessage;
-      final pt =
-          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
-
-      print('Received message: $pt from topic: ${c[0].topic}>');
-
-      // Processa o feedback recebido para a Sala
-      _processFeedback(pt);
-    });
-
-    widget.client.subscribe(widget.publishTopic, MqttQos.atLeastOnce);
-  }
-
-  void _processFeedback(String feedback) {
-    // Implemente aqui o processamento específico para o feedback da Sala
-    // Exemplo de processamento:
-    if (feedback.contains('<01C1L')) {
-      setState(() {
-        isLightOn = true;
-      });
-    } else {
-      setState(() {
-        isLightOn = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _saveText();
-    _controller.dispose();
-    super.dispose();
-  }
-
+class SalaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Sala'),
-        leading: BackButton(
-          onPressed: () {
-            _saveText();
-            Navigator.pop(context);
-          },
-        ),
       ),
-      backgroundColor: Colors.grey[300],
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFONC101'); // Envia comando para ligar na Sala
-                  },
-                  child: Text('Ligar'),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFFFC101'); // Envia comando para desligar na Sala
-                  },
-                  child: Text('Desligar'),
-                ),
-                SizedBox(width: 10),
-                Icon(
-                  isLightOn ? Icons.lightbulb : Icons.lightbulb_outline,
-                  color: isLightOn ? Colors.yellow : Colors.grey,
-                  size: 40,
-                ),
-              ],
-            ),
-          ],
-        ),
+      body: Center(
+        child: Text('Bem-vindo à Sala!'),
       ),
     );
   }
 }
 
-class CozinhaPage extends StatefulWidget {
-  final MqttServerClient client;
-  final String publishTopic;
-
-  CozinhaPage({required this.client, required this.publishTopic});
-
-  @override
-  _CozinhaPageState createState() => _CozinhaPageState();
-}
-
-class _CozinhaPageState extends State<CozinhaPage> {
-  bool isLightOn = false;
-  TextEditingController _controller = TextEditingController(text: 'spot');
-
-  @override
-  void initState() {
-    super.initState();
-    _loadText();
-    _subscribeToFeedback();
-  }
-
-  void _loadText() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _controller.text = prefs.getString('Cozinha') ?? 'spot';
-    });
-  }
-
-  void _saveText() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('Cozinha', _controller.text);
-  }
-
-  void _publishMessage(String message) {
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(message);
-    widget.client.publishMessage(
-      widget.publishTopic,
-      MqttQos.atLeastOnce,
-      builder.payload!,
-    );
-    print('Mensagem publicada para Cozinha: $message');
-  }
-
-  void _subscribeToFeedback() {
-    widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? c) {
-      final recMess = c![0].payload as MqttPublishMessage;
-      final pt =
-          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
-
-      print('Received message: $pt from topic: ${c[0].topic}>');
-
-      // Processa o feedback recebido para a Cozinha
-      _processFeedback(pt);
-    });
-
-    widget.client.subscribe(widget.publishTopic, MqttQos.atLeastOnce);
-  }
-
-  void _processFeedback(String feedback) {
-    // Define as strings para a placa e o canal
-    String placa = '01'; // Substitua com a placa desejada
-    String canal = 'C2'; // Substitua com o canal desejado
-
-    // Verifica se o feedback contém a placa e o canal desejados
-    if (feedback.contains(placa) && feedback.contains(canal)) {
-      // Atualiza o estado da lâmpada conforme o estado atual
-      setState(() {
-        isLightOn =
-            feedback.contains('estado=ligado'); // Exemplo de condição de estado
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _saveText();
-    _controller.dispose();
-    super.dispose();
-  }
-
+class CozinhaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Cozinha'),
-        leading: BackButton(
-          onPressed: () {
-            _saveText();
-            Navigator.pop(context);
-          },
-        ),
       ),
-      backgroundColor: Colors.grey[300],
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFONC201'); // Envia comando para ligar na Cozinha
-                  },
-                  child: Text('Ligar'),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFFFC201'); // Envia comando para desligar na Cozinha
-                  },
-                  child: Text('Desligar'),
-                ),
-                SizedBox(width: 10),
-                Icon(
-                  isLightOn ? Icons.lightbulb : Icons.lightbulb_outline,
-                  color: isLightOn ? Colors.yellow : Colors.grey,
-                  size: 40,
-                ),
-              ],
-            ),
-          ],
-        ),
+      body: Center(
+        child: Text('Bem-vindo à Cozinha!'),
       ),
     );
   }
 }
 
-// Implemente as classes QuartoPage, BanheiroPage e EscritorioPage de maneira semelhante
-
-class QuartoPage extends StatefulWidget {
-  final MqttServerClient client;
-  final String publishTopic;
-
-  QuartoPage({required this.client, required this.publishTopic});
-
+class SuiteMasterScreen extends StatelessWidget {
   @override
-  _QuartoPageState createState() => _QuartoPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Suíte Master'),
+      ),
+      body: Center(
+        child: Text('Bem-vindo à Suíte Master!'),
+      ),
+    );
+  }
 }
 
-class _QuartoPageState extends State<QuartoPage> {
-  bool isLightOn = false;
-  TextEditingController _controller = TextEditingController(text: 'spot');
+class SalaLampScreen extends StatefulWidget {
+  @override
+  _SalaLampScreenState createState() => _SalaLampScreenState();
+}
+
+class _SalaLampScreenState extends State<SalaLampScreen> {
+  String _savedText = 'Texto editável';
 
   @override
   void initState() {
     super.initState();
-    _loadText();
-    _subscribeToFeedback();
+    _loadSavedText();
   }
 
-  void _loadText() async {
+  void _loadSavedText() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      _controller.text = prefs.getString('Quarto') ?? 'spot';
+      _savedText = prefs.getString('savedText') ?? 'Texto editável';
     });
   }
 
-  void _saveText() async {
+  void _saveText(String text) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('Quarto', _controller.text);
+    prefs.setString('savedText', text);
   }
 
-  void _publishMessage(String message) {
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(message);
-    widget.client.publishMessage(
-      widget.publishTopic,
-      MqttQos.atLeastOnce,
-      builder.payload!,
+  void _editText() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        TextEditingController _textController =
+            TextEditingController(text: _savedText);
+
+        return AlertDialog(
+          title: Text('Alterar nome'),
+          content: TextField(
+            controller: _textController,
+            decoration: InputDecoration(hintText: "Enter text"),
+          ),
+          actions: [
+            TextButton(
+              child: Text('CANCELAR'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('SALVAR'),
+              onPressed: () {
+                setState(() {
+                  _savedText = _textController.text;
+                  _saveText(_savedText);
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
-    print('Mensagem publicada para Quarto: $message');
-  }
-
-  void _subscribeToFeedback() {
-    widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? c) {
-      final recMess = c![0].payload as MqttPublishMessage;
-      final pt =
-          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
-
-      print('Received message: $pt from topic: ${c[0].topic}>');
-
-      // Processa o feedback recebido para o Quarto
-      _processFeedback(pt);
-    });
-
-    widget.client.subscribe(widget.publishTopic, MqttQos.atLeastOnce);
-  }
-
-  void _processFeedback(String feedback) {
-    // Implemente aqui o processamento específico para o feedback do Quarto
-    // Exemplo de processamento:
-    if (feedback.contains('<01C3L')) {
-      setState(() {
-        isLightOn = true;
-      });
-    } else {
-      setState(() {
-        isLightOn = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _saveText();
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Quarto'),
-        leading: BackButton(
-          onPressed: () {
-            _saveText();
-            Navigator.pop(context);
-          },
-        ),
+        title: Text('Sala - Lâmpada'),
       ),
-      backgroundColor: Colors.grey[300],
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -587,39 +363,387 @@ class _QuartoPageState extends State<QuartoPage> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
+                  child: GestureDetector(
+                    onTap: _editText,
+                    child: Text(
+                      _savedText,
+                      style: TextStyle(fontSize: 18),
                     ),
                   ),
                 ),
-                SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFONC301'); // Envia comando para ligar no Quarto
-                  },
-                  child: Text('Ligar'),
+                  onPressed: () {},
+                  child: Text('ON'),
                 ),
                 SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: () {
-                    _publishMessage(
-                        'OFFFC301'); // Envia comando para desligar no Quarto
-                  },
-                  child: Text('Desligar'),
+                  onPressed: () {},
+                  child: Text('OFF'),
                 ),
                 SizedBox(width: 10),
                 Icon(
-                  isLightOn ? Icons.lightbulb : Icons.lightbulb_outline,
-                  color: isLightOn ? Colors.yellow : Colors.grey,
-                  size: 40,
+                  Icons.lightbulb_outline,
+                  size: 30,
                 ),
               ],
             ),
+            // Add other widgets below
+            Expanded(
+              child: Center(
+                child: Text('Controle da lâmpada da Sala!'),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CozinhaLampScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Cozinha - Lâmpada'),
+      ),
+      body: Center(
+        child: Text('Controle da lâmpada da Cozinha!'),
+      ),
+    );
+  }
+}
+
+class SuiteMasterLampScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Suíte Master - Lâmpada'),
+      ),
+      body: Center(
+        child: Text('Controle da lâmpada da Suíte Master!'),
+      ),
+    );
+  }
+}
+
+class SalaIceScreen extends StatefulWidget {
+  @override
+  _SalaIceScreenState createState() => _SalaIceScreenState();
+}
+
+class _SalaIceScreenState extends State<SalaIceScreen> {
+  bool isOn = false;
+  int temperature = 24;
+  bool isEconomyMode = false;
+
+  void togglePower() {
+    setState(() {
+      isOn = !isOn;
+    });
+  }
+
+  void increaseTemperature() {
+    setState(() {
+      if (isOn && temperature < 30) {
+        temperature++;
+      }
+    });
+  }
+
+  void decreaseTemperature() {
+    setState(() {
+      if (isOn && temperature > 16) {
+        temperature--;
+      }
+    });
+  }
+
+  void toggleEconomyMode() {
+    setState(() {
+      if (isOn) {
+        isEconomyMode = !isEconomyMode;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Sala - Floco de Gelo'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                border: Border.all(),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Text(
+                '$temperature°C',
+                style: TextStyle(fontSize: 48),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: togglePower,
+              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: decreaseTemperature,
+                  child: Text('-'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: increaseTemperature,
+                  child: Text('+'),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: toggleEconomyMode,
+              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CozinhaIceScreen extends StatefulWidget {
+  @override
+  _CozinhaIceScreenState createState() => _CozinhaIceScreenState();
+}
+
+class _CozinhaIceScreenState extends State<CozinhaIceScreen> {
+  bool isOn = false;
+  int temperature = 24;
+  bool isEconomyMode = false;
+
+  void togglePower() {
+    setState(() {
+      isOn = !isOn;
+    });
+  }
+
+  void increaseTemperature() {
+    setState(() {
+      if (isOn && temperature < 30) {
+        temperature++;
+      }
+    });
+  }
+
+  void decreaseTemperature() {
+    setState(() {
+      if (isOn && temperature > 16) {
+        temperature--;
+      }
+    });
+  }
+
+  void toggleEconomyMode() {
+    setState(() {
+      if (isOn) {
+        isEconomyMode = !isEconomyMode;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Cozinha - Floco de Gelo'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                border: Border.all(),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Text(
+                '$temperature°C',
+                style: TextStyle(fontSize: 48),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: togglePower,
+              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: decreaseTemperature,
+                  child: Text('-'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: increaseTemperature,
+                  child: Text('+'),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: toggleEconomyMode,
+              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SuiteMasterIceScreen extends StatefulWidget {
+  @override
+  _SuiteMasterIceScreenState createState() => _SuiteMasterIceScreenState();
+}
+
+class _SuiteMasterIceScreenState extends State<SuiteMasterIceScreen> {
+  bool isOn = false;
+  int temperature = 24;
+  bool isEconomyMode = false;
+
+  void togglePower() {
+    setState(() {
+      isOn = !isOn;
+    });
+  }
+
+  void increaseTemperature() {
+    setState(() {
+      if (isOn && temperature < 30) {
+        temperature++;
+      }
+    });
+  }
+
+  void decreaseTemperature() {
+    setState(() {
+      if (isOn && temperature > 16) {
+        temperature--;
+      }
+    });
+  }
+
+  void toggleEconomyMode() {
+    setState(() {
+      if (isOn) {
+        isEconomyMode = !isEconomyMode;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Suíte Master - Floco de Gelo'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                border: Border.all(),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Text(
+                '$temperature°C',
+                style: TextStyle(fontSize: 48),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: togglePower,
+              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: decreaseTemperature,
+                  child: Text('-'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: increaseTemperature,
+                  child: Text('+'),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: toggleEconomyMode,
+              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SalaWindowScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Sala - Cortinas'),
+      ),
+      body: Center(
+        child: Text('Controle da Cortinas da Sala!'),
+      ),
+    );
+  }
+}
+
+class CozinhaWindowScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Cozinha - Cortinas'),
+      ),
+      body: Center(
+        child: Text('Controle da Cortinas da Cozinha!'),
+      ),
+    );
+  }
+}
+
+class SuiteMasterWindowScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Suíte Master - Cortinas'),
+      ),
+      body: Center(
+        child: Text('Controle da Cortinas da Suíte Master!'),
       ),
     );
   }
