@@ -129,7 +129,10 @@ class _MyAppState extends State<MyApp> {
         '/sala': (context) => SalaScreen(),
         '/cozinha': (context) => CozinhaScreen(),
         '/suite_master': (context) => SuiteMasterScreen(),
-        '/sala_lamp': (context) => SalaLampScreen(),
+        '/sala_lamp': (context) => SalaLampScreen(
+            client: client!,
+            publishTopic: publishTopic,
+            subscribeTopic: subscribeTopic),
         '/cozinha_lamp': (context) => CozinhaLampScreen(),
         '/suite_master_lamp': (context) => SuiteMasterLampScreen(),
         '/sala_ice': (context) => SalaIceScreen(),
@@ -170,7 +173,7 @@ class AmbientesScreen extends StatelessWidget {
         title: Text('Ambientes'),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(10.0),
+        padding: EdgeInsets.all(1.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -216,7 +219,7 @@ class AmbienteCard extends StatelessWidget {
       child: ListTile(
         title: Text(
           title,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -289,17 +292,30 @@ class SuiteMasterScreen extends StatelessWidget {
 }
 
 class SalaLampScreen extends StatefulWidget {
+  final MqttServerClient client;
+  final String subscribeTopic;
+  final String publishTopic;
+
+  SalaLampScreen({
+    required this.client,
+    required this.subscribeTopic,
+    required this.publishTopic,
+  });
+
   @override
   _SalaLampScreenState createState() => _SalaLampScreenState();
 }
 
 class _SalaLampScreenState extends State<SalaLampScreen> {
   String _savedText = 'Texto editável';
+  bool _lampState = false;
+  Color _lampColor = Colors.grey; // Inicialmente branco
 
   @override
   void initState() {
     super.initState();
     _loadSavedText();
+    _subscribeToFeedbackTopic();
   }
 
   void _loadSavedText() async {
@@ -372,22 +388,26 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    _toggleLamp(true);
+                  },
                   child: Text('ON'),
                 ),
                 SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    _toggleLamp(false);
+                  },
                   child: Text('OFF'),
                 ),
                 SizedBox(width: 10),
                 Icon(
                   Icons.lightbulb_outline,
                   size: 30,
+                  color: _lampColor, // Cor dinâmica da lâmpada
                 ),
               ],
             ),
-            // Add other widgets below
             Expanded(
               child: Center(
                 child: Text('Controle da lâmpada da Sala!'),
@@ -397,6 +417,62 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
         ),
       ),
     );
+  }
+
+  void _subscribeToFeedbackTopic() {
+    widget.client.subscribe(widget.subscribeTopic, MqttQos.atMostOnce);
+    widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+      final String pt =
+          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+
+      print('Received message: $pt from topic: ${c[0].topic}>');
+      _processFeedback(pt);
+    });
+  }
+
+  void _processFeedback(String feedback) {
+    // Expressão regular para extrair as informações de cada placa e canal
+    RegExp exp = RegExp(r'<(\d{2})([CD]\d[L|D]){8}>');
+
+    // Encontrar todos os matches no feedback
+    Iterable<Match> matches = exp.allMatches(feedback);
+
+    // Iterar sobre cada match encontrado
+    matches.forEach((match) {
+      // Extrair número da placa
+      String plateNumber = match.group(1)!;
+      // Extrair informações de cada canal
+      for (int i = 0; i < 8; i++) {
+        String channelInfo = match.group(i + 2)!;
+        // Extrair número do canal
+        int channelNumber = int.parse(channelInfo.substring(1, 2));
+        // Verificar estado do canal (ligado/desligado)
+        bool isChannelOn = channelInfo.endsWith('L');
+
+        // Verificar se é o canal desejado (canal 2 da placa 1)
+        if (plateNumber == '01' && channelNumber == 2) {
+          // Atualizar cor da lâmpada baseado no estado do canal
+          setState(() {
+            _lampColor = isChannelOn ? Colors.yellow : Colors.grey;
+          });
+        }
+      }
+    });
+  }
+
+  void _toggleLamp(bool on) {
+    String message = on
+        ? 'OFONC201'
+        : 'OFFFC201'; // Comando MQTT para ligar ou desligar a lâmpada (canal 2 da placa 1)
+    _publish(message);
+  }
+
+  Future<void> _publish(String message) async {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(message);
+    widget.client.publishMessage(
+        widget.publishTopic, MqttQos.atLeastOnce, builder.payload!);
   }
 }
 
