@@ -292,14 +292,14 @@ class SuiteMasterScreen extends StatelessWidget {
 }
 
 class SalaLampScreen extends StatefulWidget {
-  final MqttServerClient client;
-  final String subscribeTopic;
+  final MqttClient client;
   final String publishTopic;
+  final String subscribeTopic;
 
   SalaLampScreen({
     required this.client,
-    required this.subscribeTopic,
     required this.publishTopic,
+    required this.subscribeTopic,
   });
 
   @override
@@ -307,35 +307,38 @@ class SalaLampScreen extends StatefulWidget {
 }
 
 class _SalaLampScreenState extends State<SalaLampScreen> {
-  String _savedText = 'Texto editável';
-  bool _lampState = false;
-  Color _lampColor = Colors.grey; // Inicialmente branco
+  List<String> _savedTexts =
+      List.generate(6, (index) => 'Texto editável ${index + 1}');
+  List<Color> _lampColors = List.generate(6, (index) => Colors.grey);
 
   @override
   void initState() {
     super.initState();
-    _loadSavedText();
+    _loadSavedTexts();
     _subscribeToFeedbackTopic();
   }
 
-  void _loadSavedText() async {
+  void _loadSavedTexts() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      _savedText = prefs.getString('savedText') ?? 'Texto editável';
+      for (int i = 0; i < 6; i++) {
+        _savedTexts[i] =
+            prefs.getString('savedText$i') ?? 'Texto editável ${i + 1}';
+      }
     });
   }
 
-  void _saveText(String text) async {
+  void _saveText(int index, String text) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('savedText', text);
+    prefs.setString('savedText$index', text);
   }
 
-  void _editText() {
+  void _editText(int index) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         TextEditingController _textController =
-            TextEditingController(text: _savedText);
+            TextEditingController(text: _savedTexts[index]);
 
         return AlertDialog(
           title: Text('Alterar nome'),
@@ -354,8 +357,8 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
               child: Text('SALVAR'),
               onPressed: () {
                 setState(() {
-                  _savedText = _textController.text;
-                  _saveText(_savedText);
+                  _savedTexts[index] = _textController.text;
+                  _saveText(index, _savedTexts[index]);
                 });
                 Navigator.of(context).pop();
               },
@@ -366,57 +369,16 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Sala - Lâmpada'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _editText,
-                    child: Text(
-                      _savedText,
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    _toggleLamp(true);
-                  },
-                  child: Text('ON'),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _toggleLamp(false);
-                  },
-                  child: Text('OFF'),
-                ),
-                SizedBox(width: 10),
-                Icon(
-                  Icons.lightbulb_outline,
-                  size: 30,
-                  color: _lampColor, // Cor dinâmica da lâmpada
-                ),
-              ],
-            ),
-            Expanded(
-              child: Center(
-                child: Text('Controle da lâmpada da Sala!'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _toggleLamp(String message) {
+    message.toUpperCase(); // Comando MQTT para ligar ou desligar a lâmpada
+    _publish(message.toUpperCase());
+  }
+
+  Future<void> _publish(String message) async {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(message);
+    widget.client.publishMessage(
+        widget.publishTopic, MqttQos.atLeastOnce, builder.payload!);
   }
 
   void _subscribeToFeedbackTopic() {
@@ -433,46 +395,131 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
 
   void _processFeedback(String feedback) {
     // Expressão regular para extrair as informações de cada placa e canal
-    RegExp exp = RegExp(r'<(\d{2})([CD]\d[L|D]){8}>');
+    RegExp exp = RegExp(r'<(\d{2})([CD]\d[LD]){8}>');
 
-    // Encontrar todos os matches no feedback
-    Iterable<Match> matches = exp.allMatches(feedback);
+    // Iterar sobre as correspondências encontradas
+    exp.allMatches(feedback).forEach((match) {
+      String placa = match.group(1)!; // Extrair o número da placa
+      String canaisEstados =
+          match.group(0)!; // Extrair a string completa de canais e estados
 
-    // Iterar sobre cada match encontrado
-    matches.forEach((match) {
-      // Extrair número da placa
-      String plateNumber = match.group(1)!;
-      // Extrair informações de cada canal
+      // Iterar sobre cada par de canal e estado dentro da string
       for (int i = 0; i < 8; i++) {
-        String channelInfo = match.group(i + 2)!;
-        // Extrair número do canal
-        int channelNumber = int.parse(channelInfo.substring(1, 2));
-        // Verificar estado do canal (ligado/desligado)
-        bool isChannelOn = channelInfo.endsWith('L');
+        String canal = canaisEstados.substring(3 + i * 3, 5 + i * 3);
+        String estado = canaisEstados.substring(5 + i * 3, 6 + i * 3);
 
-        // Verificar se é o canal desejado (canal 2 da placa 1)
-        if (plateNumber == '01' && channelNumber == 2) {
-          // Atualizar cor da lâmpada baseado no estado do canal
-          setState(() {
-            _lampColor = isChannelOn ? Colors.yellow : Colors.grey;
-          });
+        // Verificar se é o canal desejado e se está ligado
+        if (canal == feedback.substring(0, 2) && estado == 'L') {
+          // Trocar a cor da lâmpada se o canal correspondente estiver ligado
+          int index = int.parse(canal.substring(1, 2)) -
+              1; // Índice na lista _lampColors
+          if (index >= 0 && index < _lampColors.length) {
+            _trocarCorLampada(index);
+          }
+        }
+
+        // Imprimir o estado do canal
+        if (estado == 'L') {
+          print('placa:$placa, Canal ${i + 1}: Ligado');
+        } else if (estado == 'D') {
+          print('placa:$placa, Canal ${i + 1}: Desligado');
         }
       }
     });
   }
 
-  void _toggleLamp(bool on) {
-    String message = on
-        ? 'OFONC201'
-        : 'OFFFC201'; // Comando MQTT para ligar ou desligar a lâmpada (canal 2 da placa 1)
-    _publish(message);
+  void _trocarCorLampada(int index) {
+    // Implementar a lógica para trocar a cor da lâmpada
+    setState(() {
+      switch (index) {
+        case 0:
+          _lampColors[index] = Colors.red;
+          break;
+        case 1:
+          _lampColors[index] = Colors.green;
+          break;
+        case 2:
+          _lampColors[index] = Colors.blue;
+          break;
+        case 3:
+          _lampColors[index] = Colors.yellow;
+          break;
+        case 4:
+          _lampColors[index] = Colors.orange;
+          break;
+        case 5:
+          _lampColors[index] = Colors.purple;
+          break;
+        default:
+          print('Índice de lâmpada não suportado para troca de cor.');
+      }
+    });
   }
 
-  Future<void> _publish(String message) async {
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(message);
-    widget.client.publishMessage(
-        widget.publishTopic, MqttQos.atLeastOnce, builder.payload!);
+  Widget buildLampControl(int index, String canal_placa) {
+    // Extrair o número do canal e da placa
+    String placa = canal_placa.substring(2, 3); // Ex: 'C301' -> '01'
+    String canal = canal_placa.substring(0, 1); // Ex: 'C301' -> '3'
+
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _editText(index),
+            child: Text(
+              _savedTexts[index],
+              style: TextStyle(fontSize: 18),
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            _toggleLamp('OFON$canal_placa');
+          },
+          child: Text('ON'),
+        ),
+        SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: () {
+            _toggleLamp('OFFF$canal_placa');
+          },
+          child: Text('OFF'),
+        ),
+        SizedBox(width: 10),
+        Icon(
+          Icons.lightbulb_outline,
+          size: 30,
+          color: _lampColors[index],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Sala - Lâmpada'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            buildLampControl(0, 'C101'),
+            buildLampControl(1, 'C201'),
+            buildLampControl(2, 'C301'),
+            buildLampControl(3, 'C401'),
+            buildLampControl(4, 'C501'),
+            buildLampControl(5, 'C601'),
+            Expanded(
+              child: Center(
+                child: Text('Controle da lâmpada da Sala!'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -512,7 +559,9 @@ class SalaIceScreen extends StatefulWidget {
 class _SalaIceScreenState extends State<SalaIceScreen> {
   bool isOn = false;
   int temperature = 24;
-  bool isEconomyMode = false;
+  String mode = 'Auto';
+  bool isFanOn = false;
+  bool isFastModeOn = false;
 
   void togglePower() {
     setState(() {
@@ -536,12 +585,35 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
     });
   }
 
-  void toggleEconomyMode() {
+  void changeMode(String newMode) {
     setState(() {
       if (isOn) {
-        isEconomyMode = !isEconomyMode;
+        mode = newMode;
       }
     });
+  }
+
+  void toggleFan() {
+    setState(() {
+      if (isOn) {
+        isFanOn = !isFanOn;
+      }
+    });
+  }
+
+  void toggleFastMode() {
+    setState(() {
+      if (isOn) {
+        isFastModeOn = !isFastModeOn;
+      }
+    });
+  }
+
+  Widget buildButton(String label, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      child: Text(label),
+    );
   }
 
   @override
@@ -560,35 +632,75 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(8.0),
               ),
-              child: Text(
-                '$temperature°C',
-                style: TextStyle(fontSize: 48),
+              child: Column(
+                children: [
+                  Text(
+                    isOn ? 'Set' : '',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                  Text(
+                    isOn ? '$temperature°C' : '--°C',
+                    style: TextStyle(fontSize: 48),
+                  ),
+                  Text(
+                    isOn ? mode : 'Off',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: togglePower,
-              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('On/Off', togglePower),
+                SizedBox(width: 10),
+                buildButton('Mode', () {
+                  changeMode(mode == 'Auto'
+                      ? 'Cool'
+                      : mode == 'Cool'
+                          ? 'Dry'
+                          : mode == 'Dry'
+                              ? 'Fan'
+                              : mode == 'Fan'
+                                  ? 'Heat'
+                                  : 'Auto');
+                }),
+              ],
             ),
             SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
-                  onPressed: decreaseTemperature,
-                  child: Text('-'),
-                ),
-                SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: increaseTemperature,
-                  child: Text('+'),
-                ),
+                buildButton('Temp-', decreaseTemperature),
+                SizedBox(width: 10),
+                buildButton('Temp+', increaseTemperature),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', toggleFan),
+                SizedBox(width: 10),
+                buildButton('Fast', toggleFastMode),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', () {}),
+                SizedBox(width: 10),
+                buildButton('Timer', () {}),
+                SizedBox(width: 10),
+                buildButton('Option', () {}),
               ],
             ),
             SizedBox(height: 10),
             ElevatedButton(
-              onPressed: toggleEconomyMode,
-              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+              onPressed: () {},
+              child: Text('SET'),
             ),
           ],
         ),
@@ -605,7 +717,9 @@ class CozinhaIceScreen extends StatefulWidget {
 class _CozinhaIceScreenState extends State<CozinhaIceScreen> {
   bool isOn = false;
   int temperature = 24;
-  bool isEconomyMode = false;
+  String mode = 'Auto';
+  bool isFanOn = false;
+  bool isFastModeOn = false;
 
   void togglePower() {
     setState(() {
@@ -629,19 +743,42 @@ class _CozinhaIceScreenState extends State<CozinhaIceScreen> {
     });
   }
 
-  void toggleEconomyMode() {
+  void changeMode(String newMode) {
     setState(() {
       if (isOn) {
-        isEconomyMode = !isEconomyMode;
+        mode = newMode;
       }
     });
+  }
+
+  void toggleFan() {
+    setState(() {
+      if (isOn) {
+        isFanOn = !isFanOn;
+      }
+    });
+  }
+
+  void toggleFastMode() {
+    setState(() {
+      if (isOn) {
+        isFastModeOn = !isFastModeOn;
+      }
+    });
+  }
+
+  Widget buildButton(String label, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      child: Text(label),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cozinha - Floco de Gelo'),
+        title: Text('Sala - Floco de Gelo'),
       ),
       body: Center(
         child: Column(
@@ -653,35 +790,75 @@ class _CozinhaIceScreenState extends State<CozinhaIceScreen> {
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(8.0),
               ),
-              child: Text(
-                '$temperature°C',
-                style: TextStyle(fontSize: 48),
+              child: Column(
+                children: [
+                  Text(
+                    isOn ? 'Set' : '',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                  Text(
+                    isOn ? '$temperature°C' : '--°C',
+                    style: TextStyle(fontSize: 48),
+                  ),
+                  Text(
+                    isOn ? mode : 'Off',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: togglePower,
-              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('On/Off', togglePower),
+                SizedBox(width: 10),
+                buildButton('Mode', () {
+                  changeMode(mode == 'Auto'
+                      ? 'Cool'
+                      : mode == 'Cool'
+                          ? 'Dry'
+                          : mode == 'Dry'
+                              ? 'Fan'
+                              : mode == 'Fan'
+                                  ? 'Heat'
+                                  : 'Auto');
+                }),
+              ],
             ),
             SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
-                  onPressed: decreaseTemperature,
-                  child: Text('-'),
-                ),
-                SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: increaseTemperature,
-                  child: Text('+'),
-                ),
+                buildButton('Temp-', decreaseTemperature),
+                SizedBox(width: 10),
+                buildButton('Temp+', increaseTemperature),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', toggleFan),
+                SizedBox(width: 10),
+                buildButton('Fast', toggleFastMode),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', () {}),
+                SizedBox(width: 10),
+                buildButton('Timer', () {}),
+                SizedBox(width: 10),
+                buildButton('Option', () {}),
               ],
             ),
             SizedBox(height: 10),
             ElevatedButton(
-              onPressed: toggleEconomyMode,
-              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+              onPressed: () {},
+              child: Text('SET'),
             ),
           ],
         ),
@@ -698,7 +875,9 @@ class SuiteMasterIceScreen extends StatefulWidget {
 class _SuiteMasterIceScreenState extends State<SuiteMasterIceScreen> {
   bool isOn = false;
   int temperature = 24;
-  bool isEconomyMode = false;
+  String mode = 'Auto';
+  bool isFanOn = false;
+  bool isFastModeOn = false;
 
   void togglePower() {
     setState(() {
@@ -722,19 +901,42 @@ class _SuiteMasterIceScreenState extends State<SuiteMasterIceScreen> {
     });
   }
 
-  void toggleEconomyMode() {
+  void changeMode(String newMode) {
     setState(() {
       if (isOn) {
-        isEconomyMode = !isEconomyMode;
+        mode = newMode;
       }
     });
+  }
+
+  void toggleFan() {
+    setState(() {
+      if (isOn) {
+        isFanOn = !isFanOn;
+      }
+    });
+  }
+
+  void toggleFastMode() {
+    setState(() {
+      if (isOn) {
+        isFastModeOn = !isFastModeOn;
+      }
+    });
+  }
+
+  Widget buildButton(String label, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      child: Text(label),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Suíte Master - Floco de Gelo'),
+        title: Text('Sala - Floco de Gelo'),
       ),
       body: Center(
         child: Column(
@@ -746,35 +948,75 @@ class _SuiteMasterIceScreenState extends State<SuiteMasterIceScreen> {
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(8.0),
               ),
-              child: Text(
-                '$temperature°C',
-                style: TextStyle(fontSize: 48),
+              child: Column(
+                children: [
+                  Text(
+                    isOn ? 'Set' : '',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                  Text(
+                    isOn ? '$temperature°C' : '--°C',
+                    style: TextStyle(fontSize: 48),
+                  ),
+                  Text(
+                    isOn ? mode : 'Off',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: togglePower,
-              child: Text(isOn ? 'Desligar' : 'Ligar'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('On/Off', togglePower),
+                SizedBox(width: 10),
+                buildButton('Mode', () {
+                  changeMode(mode == 'Auto'
+                      ? 'Cool'
+                      : mode == 'Cool'
+                          ? 'Dry'
+                          : mode == 'Dry'
+                              ? 'Fan'
+                              : mode == 'Fan'
+                                  ? 'Heat'
+                                  : 'Auto');
+                }),
+              ],
             ),
             SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
-                  onPressed: decreaseTemperature,
-                  child: Text('-'),
-                ),
-                SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: increaseTemperature,
-                  child: Text('+'),
-                ),
+                buildButton('Temp-', decreaseTemperature),
+                SizedBox(width: 10),
+                buildButton('Temp+', increaseTemperature),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', toggleFan),
+                SizedBox(width: 10),
+                buildButton('Fast', toggleFastMode),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildButton('Fan', () {}),
+                SizedBox(width: 10),
+                buildButton('Timer', () {}),
+                SizedBox(width: 10),
+                buildButton('Option', () {}),
               ],
             ),
             SizedBox(height: 10),
             ElevatedButton(
-              onPressed: toggleEconomyMode,
-              child: Text(isEconomyMode ? 'Modo Normal' : 'Modo Economia'),
+              onPressed: () {},
+              child: Text('SET'),
             ),
           ],
         ),
