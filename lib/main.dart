@@ -18,8 +18,8 @@ class _MyAppState extends State<MyApp> {
   final int port = 1883;
   final String username = 'tdmstjgu';
   final String password = 'mBv2M7HusSx8';
-  String publishTopic = '/Danf/TESTE_2024/V3/Mqtt/Comando';
-  String subscribeTopic = '/Danf/TESTE_2024/V3/Mqtt/Feedback';
+  String publishTopic = '/Danf/danfshowroom/V3/Mqtt/Comando';
+  String subscribeTopic = '/Danf/danfshowroom/V3/Mqtt/Feedback';
 
   MqttServerClient? client;
   bool _connected = false;
@@ -60,6 +60,7 @@ class _MyAppState extends State<MyApp> {
     } catch (e) {
       print('Exception: $e');
       client!.disconnect();
+      _reconnect();
     }
 
     if (client!.connectionStatus!.state == MqttConnectionState.connected) {
@@ -72,6 +73,7 @@ class _MyAppState extends State<MyApp> {
       print(
           'ERROR: MQTT client connection failed - disconnecting, state is ${client!.connectionStatus!.state}');
       client!.disconnect();
+      _reconnect();
     }
 
     client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
@@ -83,6 +85,14 @@ class _MyAppState extends State<MyApp> {
     });
 
     _subscribeToTopic(subscribeTopic);
+  }
+
+  void _reconnect() {
+    Future.delayed(Duration(seconds: 1), () {
+      if (!_connected) {
+        _connect();
+      }
+    });
   }
 
   void _subscribeToTopic(String topic) {
@@ -104,6 +114,7 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _connected = false;
     });
+    _reconnect();
   }
 
   void _onSubscribed(String topic) {
@@ -113,7 +124,33 @@ class _MyAppState extends State<MyApp> {
   Future<void> _publish(String message) async {
     final builder = MqttClientPayloadBuilder();
     builder.addString(message);
-    client!.publishMessage(publishTopic, MqttQos.atLeastOnce, builder.payload!);
+    try {
+      client!
+          .publishMessage(publishTopic, MqttQos.atLeastOnce, builder.payload!);
+    } catch (e) {
+      print('Exceção ao publicar mensagem: $e');
+      _showConnectionError();
+    }
+  }
+
+  void _showConnectionError() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Erro de Conexão'),
+          content: Text('Houve um problema ao conectar-se ao servidor MQTT.'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -123,7 +160,7 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HomeScreen(),
+      home: HomeScreen(isMqttConnected: _connected),
       routes: {
         '/ambientes': (context) => AmbientesScreen(),
         '/sala': (context) => SalaScreen(),
@@ -147,19 +184,48 @@ class _MyAppState extends State<MyApp> {
 }
 
 class HomeScreen extends StatelessWidget {
+  final bool isMqttConnected;
+
+  HomeScreen({required this.isMqttConnected});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Tela Inicial'),
       ),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/ambientes');
-          },
-          child: Text('Entrar'),
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/ambientes');
+                },
+                child: Text('Entrar'),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Status: ',
+                  style: TextStyle(fontSize: 12),
+                ),
+                Icon(
+                  Icons.circle,
+                  color: isMqttConnected ? Colors.green : Colors.red,
+                  size: 12,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -307,23 +373,48 @@ class SalaLampScreen extends StatefulWidget {
 }
 
 class _SalaLampScreenState extends State<SalaLampScreen> {
-  List<String> _savedTexts =
-      List.generate(6, (index) => 'Texto editável ${index + 1}');
-  List<Color> _lampColors = List.generate(6, (index) => Colors.grey);
+  int numero_de_iluminacoes = 7;
+
+  List<String> _savedTexts = [];
+  Map<String, bool> _lampStates =
+      {}; // Novo mapa para armazenar o estado das lâmpadas
+  bool _connectionError = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeSavedTexts();
     _loadSavedTexts();
     _subscribeToFeedbackTopic();
+  }
+
+  void _initializeSavedTexts() {
+    _savedTexts = List.generate(numero_de_iluminacoes, (index) {
+      if (index == 0) {
+        return 'spot sala';
+      } else if (index == 1) {
+        return 'arandela amarela';
+      } else if (index == 2) {
+        return 'suco de maracuja';
+      } else if (index == 3) {
+        return 'texto';
+      } else if (index == 4) {
+        return 'spot 7';
+      } else if (index == 5) {
+        return 'spot 8';
+      } else if (index == 6) {
+        return 'erererer';
+      } else {
+        return '';
+      }
+    });
   }
 
   void _loadSavedTexts() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      for (int i = 0; i < 6; i++) {
-        _savedTexts[i] =
-            prefs.getString('savedText$i') ?? 'Texto editável ${i + 1}';
+      for (int i = 0; i < numero_de_iluminacoes; i++) {
+        _savedTexts[i] = prefs.getString('savedText$i') ?? _savedTexts[i];
       }
     });
   }
@@ -377,25 +468,39 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
   Future<void> _publish(String message) async {
     final builder = MqttClientPayloadBuilder();
     builder.addString(message);
-    widget.client.publishMessage(
-        widget.publishTopic, MqttQos.atLeastOnce, builder.payload!);
+    try {
+      widget.client.publishMessage(
+          widget.publishTopic, MqttQos.atLeastOnce, builder.payload!);
+    } catch (e) {
+      print('Exceção ao publicar mensagem: $e');
+      setState(() {
+        _connectionError = true;
+      });
+    }
   }
 
   void _subscribeToFeedbackTopic() {
-    widget.client.subscribe(widget.subscribeTopic, MqttQos.atMostOnce);
-    widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
-      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
-      final String pt =
-          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+    try {
+      widget.client.subscribe(widget.subscribeTopic, MqttQos.atMostOnce);
+      widget.client.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+        final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+        final String pt =
+            MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
 
-      print('Received message: $pt from topic: ${c[0].topic}>');
-      _processFeedback(pt);
-    });
+        print('Received message: $pt from topic: ${c[0].topic}>');
+        _processFeedback(pt);
+      });
+    } catch (e) {
+      print('Exceção receber mensagem: $e');
+      setState(() {
+        _connectionError = true;
+      });
+    }
   }
 
   void _processFeedback(String feedback) {
     // Expressão regular para extrair as informações de cada placa e canal
-    RegExp exp = RegExp(r'<(\d{2})([CD]\d[LD]){8}>');
+    RegExp exp = RegExp(r'<(\d{2})([C]\d[LD]){8}>');
 
     // Iterar sobre as correspondências encontradas
     exp.allMatches(feedback).forEach((match) {
@@ -408,15 +513,10 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
         String canal = canaisEstados.substring(3 + i * 3, 5 + i * 3);
         String estado = canaisEstados.substring(5 + i * 3, 6 + i * 3);
 
-        // Verificar se é o canal desejado e se está ligado
-        if (canal == feedback.substring(0, 2) && estado == 'L') {
-          // Trocar a cor da lâmpada se o canal correspondente estiver ligado
-          int index = int.parse(canal.substring(1, 2)) -
-              1; // Índice na lista _lampColors
-          if (index >= 0 && index < _lampColors.length) {
-            _trocarCorLampada(index);
-          }
-        }
+        // Atualizar o estado da lâmpada no mapa
+        setState(() {
+          _lampStates['$canal$placa'] = estado == 'L';
+        });
 
         // Imprimir o estado do canal
         if (estado == 'L') {
@@ -428,38 +528,10 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
     });
   }
 
-  void _trocarCorLampada(int index) {
-    // Implementar a lógica para trocar a cor da lâmpada
-    setState(() {
-      switch (index) {
-        case 0:
-          _lampColors[index] = Colors.red;
-          break;
-        case 1:
-          _lampColors[index] = Colors.green;
-          break;
-        case 2:
-          _lampColors[index] = Colors.blue;
-          break;
-        case 3:
-          _lampColors[index] = Colors.yellow;
-          break;
-        case 4:
-          _lampColors[index] = Colors.orange;
-          break;
-        case 5:
-          _lampColors[index] = Colors.purple;
-          break;
-        default:
-          print('Índice de lâmpada não suportado para troca de cor.');
-      }
-    });
-  }
-
   Widget buildLampControl(int index, String canal_placa) {
-    // Extrair o número do canal e da placa
-    String placa = canal_placa.substring(2, 3); // Ex: 'C301' -> '01'
-    String canal = canal_placa.substring(0, 1); // Ex: 'C301' -> '3'
+    // Determinar a cor da lâmpada com base no estado armazenado no mapa
+    Color lampColor =
+        _lampStates[canal_placa] == true ? Colors.yellow : Colors.grey;
 
     return Row(
       children: [
@@ -473,23 +545,27 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
           ),
         ),
         ElevatedButton(
-          onPressed: () {
-            _toggleLamp('OFON$canal_placa');
-          },
+          onPressed: _connectionError
+              ? null
+              : () {
+                  _toggleLamp('OFON$canal_placa');
+                },
           child: Text('ON'),
         ),
         SizedBox(width: 10),
         ElevatedButton(
-          onPressed: () {
-            _toggleLamp('OFFF$canal_placa');
-          },
+          onPressed: _connectionError
+              ? null
+              : () {
+                  _toggleLamp('OFFF$canal_placa');
+                },
           child: Text('OFF'),
         ),
         SizedBox(width: 10),
         Icon(
           Icons.lightbulb_outline,
           size: 30,
-          color: _lampColors[index],
+          color: lampColor,
         ),
       ],
     );
@@ -511,6 +587,7 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
             buildLampControl(3, 'C401'),
             buildLampControl(4, 'C501'),
             buildLampControl(5, 'C601'),
+            buildLampControl(6, 'C701'),
             Expanded(
               child: Center(
                 child: Text('Controle da lâmpada da Sala!'),
