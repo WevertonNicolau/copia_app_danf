@@ -18,8 +18,8 @@ class _MyAppState extends State<MyApp> {
   final int port = 1883;
   final String username = 'tdmstjgu';
   final String password = 'mBv2M7HusSx8';
-  String publishTopic = '/Danf/danfshowroom/V3/Mqtt/Comando';
-  String subscribeTopic = '/Danf/danfshowroom/V3/Mqtt/Feedback';
+  String publishTopic = '/Danf/TESTEBARRACAOCAMPO/V3/Mqtt/Comando';
+  String subscribeTopic = '/Danf/TESTEBARRACAOCAMPO/V3/Mqtt/Feedback';
 
   MqttServerClient? client;
   bool _connected = false;
@@ -155,30 +155,36 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: HomeScreen(isMqttConnected: _connected),
-      routes: {
-        '/ambientes': (context) => AmbientesScreen(),
-        '/sala': (context) => SalaScreen(),
-        '/cozinha': (context) => CozinhaScreen(),
-        '/suite_master': (context) => SuiteMasterScreen(),
-        '/sala_lamp': (context) => SalaLampScreen(
-            client: client!,
-            publishTopic: publishTopic,
-            subscribeTopic: subscribeTopic),
-        '/cozinha_lamp': (context) => CozinhaLampScreen(),
-        '/suite_master_lamp': (context) => SuiteMasterLampScreen(),
-        '/sala_ice': (context) => SalaIceScreen(),
-        '/cozinha_ice': (context) => CozinhaIceScreen(),
-        '/suite_master_ice': (context) => SuiteMasterIceScreen(),
-        '/sala_window': (context) => SalaWindowScreen(),
-        '/cozinha_window': (context) => CozinhaWindowScreen(),
-        '/suite_master_window': (context) => SuiteMasterWindowScreen(),
+    return WillPopScope(
+      onWillPop: () async {
+        // Retorna falso para impedir o fechamento do aplicativo
+        return false;
       },
+      child: MaterialApp(
+        title: 'Flutter Demo',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        home: HomeScreen(isMqttConnected: _connected),
+        routes: {
+          '/ambientes': (context) => AmbientesScreen(),
+          '/sala': (context) => SalaScreen(),
+          '/cozinha': (context) => CozinhaScreen(),
+          '/suite_master': (context) => SuiteMasterScreen(),
+          '/sala_lamp': (context) => SalaLampScreen(
+              client: client!,
+              publishTopic: publishTopic,
+              subscribeTopic: subscribeTopic),
+          '/cozinha_lamp': (context) => CozinhaLampScreen(),
+          '/suite_master_lamp': (context) => SuiteMasterLampScreen(),
+          '/sala_ice': (context) => SalaIceScreen(),
+          '/cozinha_ice': (context) => CozinhaIceScreen(),
+          '/suite_master_ice': (context) => SuiteMasterIceScreen(),
+          '/sala_window': (context) => SalaWindowScreen(),
+          '/cozinha_window': (context) => CozinhaWindowScreen(),
+          '/suite_master_window': (context) => SuiteMasterWindowScreen(),
+        },
+      ),
     );
   }
 }
@@ -194,35 +200,34 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Tela Inicial'),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      body: Stack(
         children: [
-          Expanded(
-            child: Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/ambientes');
-                },
-                child: Text('Entrar'),
-              ),
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/ambientes');
+              },
+              child: Text('Entrar'),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Status: ',
-                  style: TextStyle(fontSize: 12),
-                ),
-                Icon(
-                  Icons.circle,
-                  color: isMqttConnected ? Colors.green : Colors.red,
-                  size: 12,
-                ),
-              ],
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'status: ',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  Icon(
+                    Icons.circle,
+                    color: isMqttConnected ? Colors.green : Colors.red,
+                    size: 12,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -389,25 +394,21 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
   }
 
   void _initializeSavedTexts() {
-    _savedTexts = List.generate(numero_de_iluminacoes, (index) {
-      if (index == 0) {
-        return 'spot sala';
-      } else if (index == 1) {
-        return 'arandela amarela';
-      } else if (index == 2) {
-        return 'suco de maracuja';
-      } else if (index == 3) {
-        return 'texto';
-      } else if (index == 4) {
-        return 'spot 7';
-      } else if (index == 5) {
-        return 'spot 8';
-      } else if (index == 6) {
-        return 'erererer';
-      } else {
-        return '';
-      }
-    });
+    _savedTexts = [
+      'spot sala', // Index 0
+      'arandela amarela', // Index 1
+      'suco de maracuja', // Index 2
+      'texto', // Index 3
+      'spot 7', // Index 4
+      'spot 8', // Index 5
+      'erererer', // Index 6
+    ];
+
+    // If the number of illuminations exceeds the predefined list, add empty strings for the remaining items
+    if (numero_de_iluminacoes > _savedTexts.length) {
+      _savedTexts
+          .addAll(List.filled(numero_de_iluminacoes - _savedTexts.length, ''));
+    }
   }
 
   void _loadSavedTexts() async {
@@ -577,24 +578,63 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
       appBar: AppBar(
         title: Text('Sala - Lâmpada'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            buildLampControl(0, 'C101'),
-            buildLampControl(1, 'C201'),
-            buildLampControl(2, 'C301'),
-            buildLampControl(3, 'C401'),
-            buildLampControl(4, 'C501'),
-            buildLampControl(5, 'C601'),
-            buildLampControl(6, 'C701'),
-            Expanded(
-              child: Center(
-                child: Text('Controle da lâmpada da Sala!'),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                buildLampControl(0, 'C101'),
+                buildLampControl(1, 'C201'),
+                buildLampControl(2, 'C301'),
+                buildLampControl(3, 'C401'),
+                buildLampControl(4, 'C501'),
+                buildLampControl(5, 'C601'),
+                buildLampControl(6, 'C701'),
+                Expanded(
+                  child: Center(
+                    child: Text('Controle da lâmpada da Sala!'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FloatingActionButton(
+                    heroTag: 'lampControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_lamp');
+                    },
+                    child: Icon(Icons.lightbulb_outline),
+                  ),
+                  SizedBox(width: 16),
+                  FloatingActionButton(
+                    heroTag: 'iceControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_ice');
+                    },
+                    child: Icon(Icons.ac_unit),
+                  ),
+                  SizedBox(width: 16),
+                  FloatingActionButton(
+                    heroTag: 'curtainControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_window');
+                    },
+                    child: Icon(Icons.curtains_closed),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -699,88 +739,127 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
       appBar: AppBar(
         title: Text('Sala - Floco de Gelo'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                border: Border.all(),
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: Column(
+      body: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    border: Border.all(),
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        isOn ? 'Set' : '',
+                        style: TextStyle(fontSize: 24),
+                      ),
+                      Text(
+                        isOn ? '$temperature°C' : '--°C',
+                        style: TextStyle(fontSize: 48),
+                      ),
+                      Text(
+                        isOn ? mode : 'Off',
+                        style: TextStyle(fontSize: 24),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    buildButton('On/Off', togglePower),
+                    SizedBox(width: 10),
+                    buildButton('Mode', () {
+                      changeMode(mode == 'Auto'
+                          ? 'Cool'
+                          : mode == 'Cool'
+                              ? 'Dry'
+                              : mode == 'Dry'
+                                  ? 'Fan'
+                                  : mode == 'Fan'
+                                      ? 'Heat'
+                                      : 'Auto');
+                    }),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    buildButton('Temp-', decreaseTemperature),
+                    SizedBox(width: 10),
+                    buildButton('Temp+', increaseTemperature),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    buildButton('Fan', toggleFan),
+                    SizedBox(width: 10),
+                    buildButton('Fast', toggleFastMode),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    buildButton('Fan', () {}),
+                    SizedBox(width: 10),
+                    buildButton('Timer', () {}),
+                    SizedBox(width: 10),
+                    buildButton('Option', () {}),
+                  ],
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {},
+                  child: Text('SET'),
+                ),
+              ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    isOn ? 'Set' : '',
-                    style: TextStyle(fontSize: 24),
+                  FloatingActionButton(
+                    heroTag: 'lampControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_lamp');
+                    },
+                    child: Icon(Icons.lightbulb_outline),
                   ),
-                  Text(
-                    isOn ? '$temperature°C' : '--°C',
-                    style: TextStyle(fontSize: 48),
+                  SizedBox(width: 16),
+                  FloatingActionButton(
+                    heroTag: 'iceControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_ice');
+                    },
+                    child: Icon(Icons.ac_unit),
                   ),
-                  Text(
-                    isOn ? mode : 'Off',
-                    style: TextStyle(fontSize: 24),
+                  SizedBox(width: 16),
+                  FloatingActionButton(
+                    heroTag: 'curtainControl',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sala_window');
+                    },
+                    child: Icon(Icons.curtains_closed),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                buildButton('On/Off', togglePower),
-                SizedBox(width: 10),
-                buildButton('Mode', () {
-                  changeMode(mode == 'Auto'
-                      ? 'Cool'
-                      : mode == 'Cool'
-                          ? 'Dry'
-                          : mode == 'Dry'
-                              ? 'Fan'
-                              : mode == 'Fan'
-                                  ? 'Heat'
-                                  : 'Auto');
-                }),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                buildButton('Temp-', decreaseTemperature),
-                SizedBox(width: 10),
-                buildButton('Temp+', increaseTemperature),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                buildButton('Fan', toggleFan),
-                SizedBox(width: 10),
-                buildButton('Fast', toggleFastMode),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                buildButton('Fan', () {}),
-                SizedBox(width: 10),
-                buildButton('Timer', () {}),
-                SizedBox(width: 10),
-                buildButton('Option', () {}),
-              ],
-            ),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {},
-              child: Text('SET'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1109,8 +1188,92 @@ class SalaWindowScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Sala - Cortinas'),
       ),
-      body: Center(
-        child: Text('Controle da Cortinas da Sala!'),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildCortinaControl(0, 'Cortina 1'),
+            buildCortinaControl(1, 'Cortina 2'),
+            buildCortinaControl(2, 'Cortina 3'),
+            buildCortinaControl(3, 'Cortina 4'),
+            Expanded(
+              child: Center(
+                child: Text('Controle das Cortinas da Sala!'),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FloatingActionButton(
+                      heroTag: 'lampControl',
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/sala_lamp');
+                      },
+                      child: Icon(Icons.lightbulb_outline),
+                    ),
+                    SizedBox(width: 16),
+                    FloatingActionButton(
+                      heroTag: 'iceControl',
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/sala_ice');
+                      },
+                      child: Icon(Icons.ac_unit),
+                    ),
+                    SizedBox(width: 16),
+                    FloatingActionButton(
+                      heroTag: 'curtainControl',
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/sala_window');
+                      },
+                      child: Icon(Icons.curtains_closed),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildCortinaControl(int index, String cortinaNome) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            cortinaNome,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Implementar função de abrir a cortina
+            },
+            child: Text('Abrir'),
+          ),
+          SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              // Implementar função de fechar a cortina
+            },
+            child: Text('Fechar'),
+          ),
+          SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              // Implementar função de parar a cortina
+            },
+            child: Text('Parar'),
+          ),
+        ],
       ),
     );
   }
