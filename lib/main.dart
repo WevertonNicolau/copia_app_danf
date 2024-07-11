@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 
 void main() {
   runApp(MyApp());
@@ -1195,7 +1197,7 @@ class SalaWindowScreen extends StatelessWidget {
           children: [
             buildCortinaControl(0, 'Cortina 1'),
             buildCortinaControl(1, 'Cortina 2'),
-            buildCortinaControl(2, 'Cortina 3'),
+            buildCortinaControl(2, 'teste 3'),
             buildCortinaControl(3, 'Cortina 4'),
             Expanded(
               child: Center(
@@ -1255,27 +1257,81 @@ class SalaWindowScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              // Implementar função de abrir a cortina
+              sendCommand(index, cortinaNome, 'LOCAL', 'abrir');
             },
             child: Text('Abrir'),
           ),
           SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              // Implementar função de fechar a cortina
+              sendCommand(index, cortinaNome, 'LOCAL', 'fechar');
             },
             child: Text('Fechar'),
           ),
           SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              // Implementar função de parar a cortina
+              sendCommand(index, cortinaNome, 'LOCAL', 'parar');
             },
             child: Text('Parar'),
           ),
         ],
       ),
     );
+  }
+
+  void sendCommand(
+      int index, String cortinaNome, String modo, String acao) async {
+    String comando = generateCommand(index, acao);
+
+    if (modo == 'LOCAL') {
+      try {
+        final socket = await Socket.connect('192.168.15.7', 8080);
+        print('Conectado ao servidor TCP');
+
+        socket.write('$index:$cortinaNome:$comando');
+        socket.flush();
+        socket.destroy();
+        print('Comando enviado localmente com sucesso!');
+      } catch (e) {
+        print('Erro ao enviar comando localmente: $e');
+      }
+    } else if (modo == 'REMOTO') {
+      final response = await http.get(Uri.parse(comando));
+      if (response.statusCode == 200) {
+        print('Comando enviado remotamente com sucesso!');
+      } else {
+        print('Falha ao enviar comando remotamente.');
+      }
+    }
+  }
+
+  String generateCommand(int index, String acao) {
+    // Defina aqui os comandos específicos para cada cortina e ação
+    Map<int, Map<String, String>> comandos = {
+      0: {
+        'abrir': 'comando_abrir_cortina_1',
+        'fechar': 'comando_fechar_cortina_1',
+        'parar': '<CR>',
+      },
+      1: {
+        'abrir': 'comando_abrir_cortina_2',
+        'fechar': 'comando_fechar_cortina_2',
+        'parar': 'comando_parar_cortina_2',
+      },
+      2: {
+        'abrir': 'comando_abrir_cortina_3',
+        'fechar': '<CR>',
+        'parar': 'comando_parar_cortina_3',
+      },
+      3: {
+        'abrir': '<CR>',
+        'fechar': 'comando_fechar_cortina_4',
+        'parar': 'comando_parar_cortina_4',
+      },
+    };
+
+    return comandos[index]?[acao] ?? 'comando_padrao';
   }
 }
 
