@@ -4,7 +4,6 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'dart:io';
 
 void main() {
   runApp(MyApp());
@@ -191,6 +190,26 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+class BackgroundScaffold extends StatelessWidget {
+  final Widget child;
+
+  const BackgroundScaffold({Key? key, required this.child}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage(
+              'assets/images/background.jpg'), // Altere para o caminho da sua imagem
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class HomeScreen extends StatelessWidget {
   final bool isMqttConnected;
 
@@ -204,12 +223,25 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/ambientes');
-              },
-              child: Text('Entrar'),
+          // Container para o background
+          Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(
+                    'assets/images/background.jpg'), // Substitua pelo caminho da sua imagem
+                fit: BoxFit.cover,
+              ),
+            ),
+            child: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/ambientes');
+                },
+                child: Text(
+                  'Entrar',
+                  style: TextStyle(color: Colors.black), // Cor do texto preta
+                ),
+              ),
             ),
           ),
           Align(
@@ -221,7 +253,10 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     'status: ',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: const Color.fromARGB(
+                            255, 255, 255, 255)), // Cor do texto preta
                   ),
                   Icon(
                     Icons.circle,
@@ -245,28 +280,43 @@ class AmbientesScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Ambientes'),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(1.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AmbienteCard(
+      body: Container(
+        width: double.infinity, // Garante que o Container ocupe toda a largura
+        height: double.infinity, // Garante que o Container ocupe toda a altura
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+                'assets/images/background.jpg'), // Substitua pelo caminho da sua imagem
+            fit: BoxFit
+                .cover, // Faz com que a imagem cubra toda a área disponível
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(1.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AmbienteCard(
                 title: 'Sala',
                 lampRoute: '/sala_lamp',
                 iceRoute: '/sala_ice',
-                windowRoute: '/sala_window'),
-            AmbienteCard(
+                windowRoute: '/sala_window',
+              ),
+              AmbienteCard(
                 title: 'Cozinha',
                 lampRoute: '/cozinha_lamp',
                 iceRoute: '/cozinha_ice',
-                windowRoute: '/cozinha_window'),
-            AmbienteCard(
+                windowRoute: '/cozinha_window',
+              ),
+              AmbienteCard(
                 title: 'Suíte Master',
                 lampRoute: '/suite_master_lamp',
                 iceRoute: '/suite_master_ice',
-                windowRoute: '/suite_master_window'),
-            // Adicione mais abas conforme necessário
-          ],
+                windowRoute: '/suite_master_window',
+              ),
+              // Adicione mais abas conforme necessário
+            ],
+          ),
         ),
       ),
     );
@@ -370,10 +420,11 @@ class SalaLampScreen extends StatefulWidget {
   final String subscribeTopic;
 
   SalaLampScreen({
+    Key? key,
     required this.client,
     required this.publishTopic,
     required this.subscribeTopic,
-  });
+  }) : super(key: key);
 
   @override
   _SalaLampScreenState createState() => _SalaLampScreenState();
@@ -381,10 +432,8 @@ class SalaLampScreen extends StatefulWidget {
 
 class _SalaLampScreenState extends State<SalaLampScreen> {
   int numero_de_iluminacoes = 7;
-
   List<String> _savedTexts = [];
-  Map<String, bool> _lampStates =
-      {}; // Novo mapa para armazenar o estado das lâmpadas
+  Map<String, bool> _lampStates = {};
   bool _connectionError = false;
 
   @override
@@ -397,16 +446,15 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
 
   void _initializeSavedTexts() {
     _savedTexts = [
-      'spot sala', // Index 0
-      'arandela amarela', // Index 1
-      'suco de maracuja', // Index 2
-      'texto', // Index 3
-      'spot 7', // Index 4
-      'spot 8', // Index 5
-      'erererer', // Index 6
+      'spot sala',
+      'arandela amarela',
+      'suco de maracuja',
+      'texto',
+      'spot 7',
+      'spot 8',
+      'erererer',
     ];
 
-    // If the number of illuminations exceeds the predefined list, add empty strings for the remaining items
     if (numero_de_iluminacoes > _savedTexts.length) {
       _savedTexts
           .addAll(List.filled(numero_de_iluminacoes - _savedTexts.length, ''));
@@ -464,7 +512,6 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
   }
 
   void _toggleLamp(String message) {
-    message.toUpperCase(); // Comando MQTT para ligar ou desligar a lâmpada
     _publish(message.toUpperCase());
   }
 
@@ -502,26 +549,20 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
   }
 
   void _processFeedback(String feedback) {
-    // Expressão regular para extrair as informações de cada placa e canal
     RegExp exp = RegExp(r'<(\d{2})([C]\d[LD]){8}>');
 
-    // Iterar sobre as correspondências encontradas
     exp.allMatches(feedback).forEach((match) {
-      String placa = match.group(1)!; // Extrair o número da placa
-      String canaisEstados =
-          match.group(0)!; // Extrair a string completa de canais e estados
+      String placa = match.group(1)!;
+      String canaisEstados = match.group(0)!;
 
-      // Iterar sobre cada par de canal e estado dentro da string
       for (int i = 0; i < 8; i++) {
         String canal = canaisEstados.substring(3 + i * 3, 5 + i * 3);
         String estado = canaisEstados.substring(5 + i * 3, 6 + i * 3);
 
-        // Atualizar o estado da lâmpada no mapa
         setState(() {
           _lampStates['$canal$placa'] = estado == 'L';
         });
 
-        // Imprimir o estado do canal
         if (estado == 'L') {
           print('placa:$placa, Canal ${i + 1}: Ligado');
         } else if (estado == 'D') {
@@ -532,7 +573,6 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
   }
 
   Widget buildLampControl(int index, String canal_placa) {
-    // Determinar a cor da lâmpada com base no estado armazenado no mapa
     Color lampColor =
         _lampStates[canal_placa] == true ? Colors.yellow : Colors.grey;
 
@@ -543,7 +583,10 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
             onTap: () => _editText(index),
             child: Text(
               _savedTexts[index],
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+                color: const Color.fromARGB(255, 255, 255, 255),
+              ),
             ),
           ),
         ),
@@ -585,87 +628,86 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
         appBar: AppBar(
           title: Text('Sala - Lâmpada'),
         ),
-        body: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  buildLampControl(0, 'C101'),
-                  buildLampControl(1, 'C201'),
-                  buildLampControl(2, 'C301'),
-                  buildLampControl(3, 'C401'),
-                  buildLampControl(4, 'C501'),
-                  buildLampControl(5, 'C601'),
-                  buildLampControl(6, 'C701'),
-                  Expanded(
-                    child: Center(
-                      child: Text('Controle da lâmpada da Sala!'),
-                    ),
-                  ),
-                ],
+        body: BackgroundScaffold(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    buildLampControl(0, 'C101'),
+                    buildLampControl(1, 'C201'),
+                    buildLampControl(2, 'C301'),
+                    buildLampControl(3, 'C401'),
+                    buildLampControl(4, 'C501'),
+                    buildLampControl(5, 'C601'),
+                    buildLampControl(6, 'C701'),
+                  ],
+                ),
               ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'lampControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/sala_lamp');
-                        },
-                        child: Icon(Icons.lightbulb_outline),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                      SizedBox(width: 16),
-                      FloatingActionButton(
-                        heroTag: 'iceControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/sala_ice');
-                        },
-                        child: Icon(Icons.ac_unit),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                      SizedBox(width: 16),
-                      FloatingActionButton(
-                        heroTag: 'curtainControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(
-                              context, '/sala_window');
-                        },
-                        child: Icon(Icons.curtains_closed),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                    ],
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FloatingActionButton(
+                          heroTag: 'lampControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_lamp');
+                          },
+                          child: Icon(Icons.lightbulb_outline),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                        SizedBox(width: 16),
+                        FloatingActionButton(
+                          heroTag: 'iceControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_ice');
+                          },
+                          child: Icon(Icons.ac_unit),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                        SizedBox(width: 16),
+                        FloatingActionButton(
+                          heroTag: 'curtainControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_window');
+                          },
+                          child: Icon(Icons.curtains_closed),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -779,6 +821,16 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
         ),
         body: Stack(
           children: [
+            // Container para o background
+            Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(
+                      'assets/images/background.jpg'), // Substitua pelo caminho da sua imagem
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -786,6 +838,8 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                   Container(
                     padding: EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
+                      color: Colors.white
+                          .withOpacity(0.8), // Fundo branco com transparência
                       border: Border.all(),
                       borderRadius: BorderRadius.circular(8.0),
                     ),
@@ -793,15 +847,15 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                       children: [
                         Text(
                           isOn ? 'Set' : '',
-                          style: TextStyle(fontSize: 24),
+                          style: TextStyle(fontSize: 24, color: Colors.black),
                         ),
                         Text(
                           isOn ? '$temperature°C' : '--°C',
-                          style: TextStyle(fontSize: 48),
+                          style: TextStyle(fontSize: 48, color: Colors.black),
                         ),
                         Text(
                           isOn ? mode : 'Off',
-                          style: TextStyle(fontSize: 24),
+                          style: TextStyle(fontSize: 24, color: Colors.black),
                         ),
                       ],
                     ),
@@ -1257,83 +1311,104 @@ class SalaWindowScreen extends StatelessWidget {
         appBar: AppBar(
           title: Text('Sala - Cortinas'),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              buildCortinaControl(0, 'Cortina 1'),
-              buildCortinaControl(1, 'Cortina 2'),
-              buildCortinaControl(2, 'teste 3'),
-              buildCortinaControl(3, 'Cortina 4'),
-              Expanded(
-                child: Center(
-                  child: Text('Controle das Cortinas da Sala!'),
+        body: Stack(
+          children: [
+            // Container para o background
+            Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(
+                      'assets/images/background.jpg'), // Substitua pelo caminho da sua imagem
+                  fit: BoxFit.cover,
                 ),
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.all(7.0),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FloatingActionButton(
-                          heroTag: 'lampControl',
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(
-                                context, '/sala_lamp');
-                          },
-                          child: Icon(Icons.lightbulb_outline),
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          highlightElevation: 0,
-                        ),
-                        SizedBox(width: 16),
-                        FloatingActionButton(
-                          heroTag: 'iceControl',
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(
-                                context, '/sala_ice');
-                          },
-                          child: Icon(Icons.ac_unit),
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          highlightElevation: 0,
-                        ),
-                        SizedBox(width: 16),
-                        FloatingActionButton(
-                          heroTag: 'curtainControl',
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(
-                                context, '/sala_window');
-                          },
-                          child: Icon(Icons.curtains_closed),
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          highlightElevation: 0,
-                        ),
-                      ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  buildCortinaControl(0, 'Cortina 1'),
+                  buildCortinaControl(1, 'Cortina 2'),
+                  buildCortinaControl(2, 'teste 3'),
+                  buildCortinaControl(3, 'Cortina 4'),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        '',
+                        style: TextStyle(
+                            fontSize: 18,
+                            color: Color.fromARGB(
+                                255, 255, 255, 255)), // Cor do texto preta
+                      ),
                     ),
                   ),
-                ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.all(7.0),
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            FloatingActionButton(
+                              heroTag: 'lampControl',
+                              onPressed: () {
+                                Navigator.pushReplacementNamed(
+                                    context, '/sala_lamp');
+                              },
+                              child: Icon(Icons.lightbulb_outline),
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              highlightElevation: 0,
+                            ),
+                            SizedBox(width: 16),
+                            FloatingActionButton(
+                              heroTag: 'iceControl',
+                              onPressed: () {
+                                Navigator.pushReplacementNamed(
+                                    context, '/sala_ice');
+                              },
+                              child: Icon(Icons.ac_unit),
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              highlightElevation: 0,
+                            ),
+                            SizedBox(width: 16),
+                            FloatingActionButton(
+                              heroTag: 'curtainControl',
+                              onPressed: () {
+                                Navigator.pushReplacementNamed(
+                                    context, '/sala_window');
+                              },
+                              child: Icon(Icons.curtains_closed),
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              highlightElevation: 0,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1347,7 +1422,11 @@ class SalaWindowScreen extends StatelessWidget {
         children: [
           Text(
             cortinaNome,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color.fromARGB(
+                    255, 255, 255, 255)), // Cor do texto preta
           ),
           ElevatedButton(
             onPressed: () {
