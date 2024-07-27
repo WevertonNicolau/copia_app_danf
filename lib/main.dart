@@ -300,19 +300,19 @@ class AmbienteCard extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.lightbulb_outline),
               onPressed: () {
-                Navigator.pushNamed(context, lampRoute);
+                Navigator.pushReplacementNamed(context, lampRoute);
               },
             ),
             IconButton(
               icon: Icon(Icons.ac_unit),
               onPressed: () {
-                Navigator.pushNamed(context, iceRoute);
+                Navigator.pushReplacementNamed(context, iceRoute);
               },
             ),
             IconButton(
               icon: Icon(Icons.curtains_closed),
               onPressed: () {
-                Navigator.pushNamed(context, windowRoute);
+                Navigator.pushReplacementNamed(context, windowRoute);
               },
             ),
           ],
@@ -576,67 +576,97 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Sala - Lâmpada'),
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                buildLampControl(0, 'C101'),
-                buildLampControl(1, 'C201'),
-                buildLampControl(2, 'C301'),
-                buildLampControl(3, 'C401'),
-                buildLampControl(4, 'C501'),
-                buildLampControl(5, 'C601'),
-                buildLampControl(6, 'C701'),
-                Expanded(
-                  child: Center(
-                    child: Text('Controle da lâmpada da Sala!'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushReplacementNamed(context, '/ambientes');
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Sala - Lâmpada'),
+        ),
+        body: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
                 children: [
-                  FloatingActionButton(
-                    heroTag: 'lampControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_lamp');
-                    },
-                    child: Icon(Icons.lightbulb_outline),
-                  ),
-                  SizedBox(width: 16),
-                  FloatingActionButton(
-                    heroTag: 'iceControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_ice');
-                    },
-                    child: Icon(Icons.ac_unit),
-                  ),
-                  SizedBox(width: 16),
-                  FloatingActionButton(
-                    heroTag: 'curtainControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_window');
-                    },
-                    child: Icon(Icons.curtains_closed),
+                  buildLampControl(0, 'C101'),
+                  buildLampControl(1, 'C201'),
+                  buildLampControl(2, 'C301'),
+                  buildLampControl(3, 'C401'),
+                  buildLampControl(4, 'C501'),
+                  buildLampControl(5, 'C601'),
+                  buildLampControl(6, 'C701'),
+                  Expanded(
+                    child: Center(
+                      child: Text('Controle da lâmpada da Sala!'),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'lampControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/sala_lamp');
+                        },
+                        child: Icon(Icons.lightbulb_outline),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                      SizedBox(width: 16),
+                      FloatingActionButton(
+                        heroTag: 'iceControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/sala_ice');
+                        },
+                        child: Icon(Icons.ac_unit),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                      SizedBox(width: 16),
+                      FloatingActionButton(
+                        heroTag: 'curtainControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(
+                              context, '/sala_window');
+                        },
+                        child: Icon(Icons.curtains_closed),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -737,131 +767,162 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Sala - Floco de Gelo'),
-      ),
-      body: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    border: Border.all(),
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        isOn ? 'Set' : '',
-                        style: TextStyle(fontSize: 24),
-                      ),
-                      Text(
-                        isOn ? '$temperature°C' : '--°C',
-                        style: TextStyle(fontSize: 48),
-                      ),
-                      Text(
-                        isOn ? mode : 'Off',
-                        style: TextStyle(fontSize: 24),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    buildButton('On/Off', togglePower),
-                    SizedBox(width: 10),
-                    buildButton('Mode', () {
-                      changeMode(mode == 'Auto'
-                          ? 'Cool'
-                          : mode == 'Cool'
-                              ? 'Dry'
-                              : mode == 'Dry'
-                                  ? 'Fan'
-                                  : mode == 'Fan'
-                                      ? 'Heat'
-                                      : 'Auto');
-                    }),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    buildButton('Temp-', decreaseTemperature),
-                    SizedBox(width: 10),
-                    buildButton('Temp+', increaseTemperature),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    buildButton('Fan', toggleFan),
-                    SizedBox(width: 10),
-                    buildButton('Fast', toggleFastMode),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    buildButton('Fan', () {}),
-                    SizedBox(width: 10),
-                    buildButton('Timer', () {}),
-                    SizedBox(width: 10),
-                    buildButton('Option', () {}),
-                  ],
-                ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {},
-                  child: Text('SET'),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/ambientes', (route) => false);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Sala - Floco de Gelo'),
+        ),
+        body: Stack(
+          children: [
+            Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  FloatingActionButton(
-                    heroTag: 'lampControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_lamp');
-                    },
-                    child: Icon(Icons.lightbulb_outline),
+                  Container(
+                    padding: EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      border: Border.all(),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          isOn ? 'Set' : '',
+                          style: TextStyle(fontSize: 24),
+                        ),
+                        Text(
+                          isOn ? '$temperature°C' : '--°C',
+                          style: TextStyle(fontSize: 48),
+                        ),
+                        Text(
+                          isOn ? mode : 'Off',
+                          style: TextStyle(fontSize: 24),
+                        ),
+                      ],
+                    ),
                   ),
-                  SizedBox(width: 16),
-                  FloatingActionButton(
-                    heroTag: 'iceControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_ice');
-                    },
-                    child: Icon(Icons.ac_unit),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      buildButton('On/Off', togglePower),
+                      SizedBox(width: 10),
+                      buildButton('Mode', () {
+                        changeMode(mode == 'Auto'
+                            ? 'Cool'
+                            : mode == 'Cool'
+                                ? 'Dry'
+                                : mode == 'Dry'
+                                    ? 'Fan'
+                                    : mode == 'Fan'
+                                        ? 'Heat'
+                                        : 'Auto');
+                      }),
+                    ],
                   ),
-                  SizedBox(width: 16),
-                  FloatingActionButton(
-                    heroTag: 'curtainControl',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sala_window');
-                    },
-                    child: Icon(Icons.curtains_closed),
+                  SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      buildButton('Temp-', decreaseTemperature),
+                      SizedBox(width: 10),
+                      buildButton('Temp+', increaseTemperature),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      buildButton('Fan', toggleFan),
+                      SizedBox(width: 10),
+                      buildButton('Fast', toggleFastMode),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      buildButton('Fan', () {}),
+                      SizedBox(width: 10),
+                      buildButton('Timer', () {}),
+                      SizedBox(width: 10),
+                      buildButton('Option', () {}),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {},
+                    child: Text('SET'),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'lampControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/sala_lamp');
+                        },
+                        child: Icon(Icons.lightbulb_outline),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                      SizedBox(width: 16),
+                      FloatingActionButton(
+                        heroTag: 'iceControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/sala_ice');
+                        },
+                        child: Icon(Icons.ac_unit),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                      SizedBox(width: 16),
+                      FloatingActionButton(
+                        heroTag: 'curtainControl',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(
+                              context, '/sala_window');
+                        },
+                        child: Icon(Icons.curtains_closed),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        highlightElevation: 0,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1186,60 +1247,93 @@ class _SuiteMasterIceScreenState extends State<SuiteMasterIceScreen> {
 class SalaWindowScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Sala - Cortinas'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            buildCortinaControl(0, 'Cortina 1'),
-            buildCortinaControl(1, 'Cortina 2'),
-            buildCortinaControl(2, 'teste 3'),
-            buildCortinaControl(3, 'Cortina 4'),
-            Expanded(
-              child: Center(
-                child: Text('Controle das Cortinas da Sala!'),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FloatingActionButton(
-                      heroTag: 'lampControl',
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/sala_lamp');
-                      },
-                      child: Icon(Icons.lightbulb_outline),
-                    ),
-                    SizedBox(width: 16),
-                    FloatingActionButton(
-                      heroTag: 'iceControl',
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/sala_ice');
-                      },
-                      child: Icon(Icons.ac_unit),
-                    ),
-                    SizedBox(width: 16),
-                    FloatingActionButton(
-                      heroTag: 'curtainControl',
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/sala_window');
-                      },
-                      child: Icon(Icons.curtains_closed),
-                    ),
-                  ],
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/ambientes', (route) => false);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Sala - Cortinas'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildCortinaControl(0, 'Cortina 1'),
+              buildCortinaControl(1, 'Cortina 2'),
+              buildCortinaControl(2, 'teste 3'),
+              buildCortinaControl(3, 'Cortina 4'),
+              Expanded(
+                child: Center(
+                  child: Text('Controle das Cortinas da Sala!'),
                 ),
               ),
-            ),
-          ],
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(7.0),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FloatingActionButton(
+                          heroTag: 'lampControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_lamp');
+                          },
+                          child: Icon(Icons.lightbulb_outline),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                        SizedBox(width: 16),
+                        FloatingActionButton(
+                          heroTag: 'iceControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_ice');
+                          },
+                          child: Icon(Icons.ac_unit),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                        SizedBox(width: 16),
+                        FloatingActionButton(
+                          heroTag: 'curtainControl',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                                context, '/sala_window');
+                          },
+                          child: Icon(Icons.curtains_closed),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          highlightElevation: 0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1257,21 +1351,21 @@ class SalaWindowScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              sendCommand(index, cortinaNome, 'LOCAL', 'abrir');
+              sendCommand(index, cortinaNome, 'abrir');
             },
             child: Text('Abrir'),
           ),
           SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              sendCommand(index, cortinaNome, 'LOCAL', 'fechar');
+              sendCommand(index, cortinaNome, 'fechar');
             },
             child: Text('Fechar'),
           ),
           SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              sendCommand(index, cortinaNome, 'LOCAL', 'parar');
+              sendCommand(index, cortinaNome, 'parar');
             },
             child: Text('Parar'),
           ),
@@ -1280,29 +1374,16 @@ class SalaWindowScreen extends StatelessWidget {
     );
   }
 
-  void sendCommand(
-      int index, String cortinaNome, String modo, String acao) async {
+  void sendCommand(int index, String cortinaNome, String acao) async {
     String comando = generateCommand(index, acao);
 
-    if (modo == 'LOCAL') {
-      try {
-        final socket = await Socket.connect('192.168.15.7', 8080);
-        print('Conectado ao servidor TCP');
-
-        socket.write('$index:$cortinaNome:$comando');
-        socket.flush();
-        socket.destroy();
-        print('Comando enviado localmente com sucesso!');
-      } catch (e) {
-        print('Erro ao enviar comando localmente: $e');
-      }
-    } else if (modo == 'REMOTO') {
-      final response = await http.get(Uri.parse(comando));
-      if (response.statusCode == 200) {
-        print('Comando enviado remotamente com sucesso!');
-      } else {
-        print('Falha ao enviar comando remotamente.');
-      }
+    // Envia o comando remotamente
+    final response = await http.get(Uri.parse(comando));
+    if (response.statusCode == 200) {
+      print(
+          'Comando enviado remotamente com sucesso!###############################################################################################################');
+    } else {
+      print('Falha ao enviar comando remotamente.');
     }
   }
 
@@ -1310,28 +1391,29 @@ class SalaWindowScreen extends StatelessWidget {
     // Defina aqui os comandos específicos para cada cortina e ação
     Map<int, Map<String, String>> comandos = {
       0: {
-        'abrir': 'comando_abrir_cortina_1',
-        'fechar': 'comando_fechar_cortina_1',
-        'parar': '<CR>',
+        'abrir':
+            'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000', //controlart do carlos cruzich
+        'fechar': 'http://your-server.com/comando_fechar_cortina_1',
+        'parar': 'http://your-server.com/comando_parar_cortina_1',
       },
       1: {
-        'abrir': 'comando_abrir_cortina_2',
-        'fechar': 'comando_fechar_cortina_2',
-        'parar': 'comando_parar_cortina_2',
+        'abrir': 'http://your-server.com/comando_abrir_cortina_2',
+        'fechar': 'http://your-server.com/comando_fechar_cortina_2',
+        'parar': 'http://your-server.com/comando_parar_cortina_2',
       },
       2: {
-        'abrir': 'comando_abrir_cortina_3',
-        'fechar': '<CR>',
-        'parar': 'comando_parar_cortina_3',
+        'abrir': 'http://your-server.com/comando_abrir_cortina_3',
+        'fechar': 'http://your-server.com/comando_fechar_cortina_3',
+        'parar': 'http://your-server.com/comando_parar_cortina_3',
       },
       3: {
-        'abrir': '<CR>',
-        'fechar': 'comando_fechar_cortina_4',
-        'parar': 'comando_parar_cortina_4',
+        'abrir': 'http://your-server.com/comando_abrir_cortina_4',
+        'fechar': 'http://your-server.com/comando_fechar_cortina_4',
+        'parar': 'http://your-server.com/comando_parar_cortina_4',
       },
     };
 
-    return comandos[index]?[acao] ?? 'comando_padrao';
+    return comandos[index]?[acao] ?? 'http://your-server.com/comando_padrao';
   }
 }
 
