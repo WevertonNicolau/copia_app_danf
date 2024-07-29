@@ -19,8 +19,8 @@ class _MyAppState extends State<MyApp> {
   final int port = 1883;
   final String username = 'tdmstjgu';
   final String password = 'mBv2M7HusSx8';
-  String publishTopic = '/Danf/TESTEBARRACAOCAMPO/V3/Mqtt/Comando';
-  String subscribeTopic = '/Danf/TESTEBARRACAOCAMPO/V3/Mqtt/Feedback';
+  String publishTopic = '/Danf/TESTE_2024/V3/Mqtt/Comando';
+  String subscribeTopic = '/Danf/TESTE_2024/V3/Mqtt/Feedback';
 
   MqttServerClient? client;
   bool _connected = false;
