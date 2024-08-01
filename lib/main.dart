@@ -874,12 +874,14 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
   bool isOn = false;
   int temperature = 24;
   String mode = 'Auto';
+  bool isColdMode = true; // Inicialmente frio
   bool isFanOn = false;
   bool isFastModeOn = false;
 
   void togglePower() {
     setState(() {
       isOn = !isOn;
+      sendCommand('power', isOn ? 'on' : 'off');
     });
   }
 
@@ -887,6 +889,8 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
     setState(() {
       if (isOn && temperature < 30) {
         temperature++;
+        sendCommand(
+            'temperature', '${temperature}_${isColdMode ? 'cool' : 'hot'}');
       }
     });
   }
@@ -895,6 +899,8 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
     setState(() {
       if (isOn && temperature > 16) {
         temperature--;
+        sendCommand(
+            'temperature', '${temperature}_${isColdMode ? 'cool' : 'hot'}');
       }
     });
   }
@@ -903,14 +909,15 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
     setState(() {
       if (isOn) {
         mode = newMode;
+        sendCommand('mode', mode);
       }
     });
   }
 
-  void toggleFan() {
+  void toggleFan(int speed) {
     setState(() {
       if (isOn) {
-        isFanOn = !isFanOn;
+        sendCommand('fan', 'vel$speed');
       }
     });
   }
@@ -919,8 +926,100 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
     setState(() {
       if (isOn) {
         isFastModeOn = !isFastModeOn;
+        sendCommand('fast_mode', isFastModeOn ? 'on' : 'off');
       }
     });
+  }
+
+  Future<void> sendCommand(String command, String value) async {
+    String url = generateCommandUrl(command, value);
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      print(
+          'Comando enviado com sucesso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    } else {
+      print(
+          'Falha ao enviar comando.##########################################');
+    }
+  }
+
+  String generateCommandUrl(String command, String value) {
+    Map<String, String> commandUrls = {
+      'power_on': 'https://your-server.com/command_power_on',
+      'power_off': 'https://your-server.com/command_power_off',
+      'temperature_16_cool':
+          'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000',
+      'temperature_17_cool':
+          'https://your-server.com/command_temperature_17_cool',
+      'temperature_18_cool':
+          'https://your-server.com/command_temperature_18_cool',
+      'temperature_19_cool':
+          'https://your-server.com/command_temperature_19_cool',
+      'temperature_20_cool':
+          'https://your-server.com/command_temperature_20_cool',
+      'temperature_21_cool':
+          'https://your-server.com/command_temperature_21_cool',
+      'temperature_22_cool':
+          'https://your-server.com/command_temperature_22_cool',
+      'temperature_23_cool':
+          'https://your-server.com/command_temperature_23_cool',
+      'temperature_24_cool':
+          'https://your-server.com/command_temperature_24_cool',
+      'temperature_25_cool':
+          'https://your-server.com/command_temperature_25_cool',
+      'temperature_26_cool':
+          'https://your-server.com/command_temperature_26_cool',
+      'temperature_27_cool':
+          'https://your-server.com/command_temperature_27_cool',
+      'temperature_28_cool':
+          'https://your-server.com/command_temperature_28_cool',
+      'temperature_29_cool':
+          'https://your-server.com/command_temperature_29_cool',
+      'temperature_30_cool':
+          'https://your-server.com/command_temperature_30_cool',
+      'temperature_16_hot':
+          'https://your-server.com/command_temperature_16_hot',
+      'temperature_17_hot':
+          'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000',
+      'temperature_18_hot':
+          'https://your-server.com/command_temperature_18_hot',
+      'temperature_19_hot':
+          'https://your-server.com/command_temperature_19_hot',
+      'temperature_20_hot':
+          'https://your-server.com/command_temperature_20_hot',
+      'temperature_21_hot':
+          'https://your-server.com/command_temperature_21_hot',
+      'temperature_22_hot':
+          'https://your-server.com/command_temperature_22_hot',
+      'temperature_23_hot':
+          'https://your-server.com/command_temperature_23_hot',
+      'temperature_24_hot':
+          'https://your-server.com/command_temperature_24_hot',
+      'temperature_25_hot':
+          'https://your-server.com/command_temperature_25_hot',
+      'temperature_26_hot':
+          'https://your-server.com/command_temperature_26_hot',
+      'temperature_27_hot':
+          'https://your-server.com/command_temperature_27_hot',
+      'temperature_28_hot':
+          'https://your-server.com/command_temperature_28_hot',
+      'temperature_29_hot':
+          'https://your-server.com/command_temperature_29_hot',
+      'temperature_30_hot':
+          'https://your-server.com/command_temperature_30_hot',
+      'mode_auto':
+          'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000',
+      'mode_cool': 'https://your-server.com/command_mode_cool',
+      'mode_hot':
+          'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000',
+      'fan_vel1': 'https://your-server.com/command_fan_vel1',
+      'fan_vel2': 'https://your-server.com/command_fan_vel2',
+      'fan_vel3': 'https://your-server.com/command_fan_vel3',
+    };
+
+    return commandUrls['${command}_${value}'] ??
+        'https://your-server.com/command_default';
   }
 
   Widget buildButton(String label, VoidCallback onPressed, {IconData? icon}) {
@@ -1007,9 +1106,21 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          isOn ? '$temperature°C' : '--°C',
-                          style: TextStyle(fontSize: 48, color: Colors.black),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              isOn ? '$temperature°C' : '--°C',
+                              style:
+                                  TextStyle(fontSize: 48, color: Colors.black),
+                            ),
+                            SizedBox(width: 10),
+                            Icon(
+                              isColdMode ? Icons.ac_unit : Icons.wb_sunny,
+                              size: 48,
+                              color: Colors.black,
+                            ),
+                          ],
                         ),
                         Text(
                           isOn ? mode : 'Off',
@@ -1025,93 +1136,39 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      buildButton('AUTO', () => changeMode('Auto')),
+                      buildButton('AUTO', () => changeMode('auto')),
                       SizedBox(width: 10),
-                      buildButton('FRIO', () => changeMode('Cool')),
+                      buildButton(
+                        isColdMode ? 'FRIO' : 'QUENTE',
+                        () => setState(() {
+                          isColdMode = !isColdMode;
+                          sendCommand('mode', isColdMode ? 'cool' : 'hot');
+                        }),
+                        icon: isColdMode ? Icons.ac_unit : Icons.wb_sunny,
+                      ),
                     ],
                   ),
-                  SizedBox(height: 10),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      buildButton('VEL 1', toggleFan),
+                      buildButton('-', decreaseTemperature),
                       SizedBox(width: 10),
-                      buildButton('VEL 2', toggleFan),
+                      buildButton('+', increaseTemperature),
                     ],
                   ),
-                  SizedBox(height: 10),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      buildButton('VEL 3', toggleFastMode),
+                      buildButton('VEL 1', () => sendCommand('fan', 'vel1')),
                       SizedBox(width: 10),
-                      buildButton('Temp-', decreaseTemperature,
-                          icon: Icons.arrow_downward),
+                      buildButton('VEL 2', () => sendCommand('fan', 'vel2')),
                       SizedBox(width: 10),
-                      buildButton('Temp+', increaseTemperature,
-                          icon: Icons.arrow_upward),
+                      buildButton('VEL 3', () => sendCommand('fan', 'vel3')),
                     ],
                   ),
                 ],
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 200, 200, 200),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'lampControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/sala_lamp');
-                        },
-                        child: Icon(Icons.lightbulb_outline),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                      SizedBox(width: 16),
-                      FloatingActionButton(
-                        heroTag: 'iceControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/sala_ice');
-                        },
-                        child: Icon(Icons.ac_unit),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                      SizedBox(width: 16),
-                      FloatingActionButton(
-                        heroTag: 'curtainControl',
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(
-                              context, '/sala_window');
-                        },
-                        child: Icon(Icons.curtains_closed),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        highlightElevation: 0,
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ],
