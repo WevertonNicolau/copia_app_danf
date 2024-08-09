@@ -20,8 +20,8 @@ class _MyAppState extends State<MyApp> {
   final int port = 1883;
   final String username = 'tdmstjgu';
   final String password = 'mBv2M7HusSx8';
-  String publishTopic = '/Danf/TESTE2024/V3/Mqtt/Comando';
-  String subscribeTopic = '/Danf/TESTE2024/V3/Mqtt/Feedback';
+  String publishTopic = '/Danf/WN/V3/Mqtt/Comando';
+  String subscribeTopic = '/Danf/WN/V3/Mqtt/Feedback';
 
   MqttServerClient? client;
   bool _connected = false;
@@ -193,6 +193,10 @@ class _MyAppState extends State<MyApp> {
           '/sala_window': (context) => SalaWindowScreen(),
           '/cozinha_window': (context) => CozinhaWindowScreen(),
           '/suite_master_window': (context) => SuiteMasterWindowScreen(),
+          '/cenas': (context) => CenasScreen(
+              client: client!,
+              publishTopic: publishTopic,
+              subscribeTopic: subscribeTopic),
         },
       ),
     );
@@ -328,6 +332,186 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class CenasScreen extends StatelessWidget {
+  final MqttClient client;
+  final String publishTopic;
+  final String subscribeTopic;
+
+  CenasScreen({
+    required this.client,
+    required this.publishTopic,
+    required this.subscribeTopic,
+  });
+
+  void sendMqttMessage(String message) {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(message);
+
+    client.publishMessage(publishTopic, MqttQos.exactlyOnce, builder.payload!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/ambientes', (route) => false);
+        return false;
+      },
+      child: Scaffold(
+        endDrawer: Drawer(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5,
+            color: Colors.black.withOpacity(0.9),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                  ),
+                  child: Text(
+                    'Ambientes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  title: Text('Sala', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/sala_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Suíte Master',
+                      style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/suite_master_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Cozinha', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cozinha_lamp');
+                  },
+                ),
+                Divider(color: Colors.white),
+                ListTile(
+                  title: Text('Cenas', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cenas');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        body: Stack(
+          children: [
+            // Container para o background
+            Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/background.jpg'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            // AppBar personalizado
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AppBar(
+                title: Text(
+                  'Cenas',
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                centerTitle: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/ambientes', (route) => false);
+                  },
+                ),
+                actions: [
+                  Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        icon: Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Conteúdo da tela
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 80),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        buildActionControl('Ligar tudo', 'OFAN'),
+                        buildActionControl('Apagar tudo', 'OFAO'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildActionControl(String label, String mqttMessage) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              sendMqttMessage(mqttMessage);
+            },
+            child: Text('Executar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color.fromARGB(255, 56, 103, 141),
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.0),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AmbientesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -363,6 +547,16 @@ class AmbientesScreen extends StatelessWidget {
                     );
                   },
                 ),
+                actions: [
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: Icon(Icons.menu),
+                      onPressed: () {
+                        Scaffold.of(context).openEndDrawer();
+                      },
+                    ),
+                  ),
+                ],
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -396,6 +590,60 @@ class AmbientesScreen extends StatelessWidget {
             ],
           ),
         ],
+      ),
+      endDrawer: Drawer(
+        child: Container(
+          width: MediaQuery.of(context).size.width *
+              0.5, // Define o menu para abrir até o meio da página
+          color: Colors.black.withOpacity(0.9), // Define o fundo preto
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Colors.black
+                      .withOpacity(0.8), // Fundo preto para o header também
+                ),
+                child: Text(
+                  'Ambientes',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+              ListTile(
+                title: Text('Sala',
+                    style: TextStyle(color: Colors.white)), // Texto branco
+                onTap: () {
+                  Navigator.pushNamed(context, '/sala_lamp');
+                },
+              ),
+              ListTile(
+                title: Text('Suíte Master',
+                    style: TextStyle(color: Colors.white)), // Texto branco
+                onTap: () {
+                  Navigator.pushNamed(context, '/cozinha_lamp');
+                },
+              ),
+              ListTile(
+                title: Text('Cozinha',
+                    style: TextStyle(color: Colors.white)), // Texto branco
+                onTap: () {
+                  Navigator.pushNamed(context, '/suite_master_lamp');
+                },
+              ),
+              Divider(color: Colors.white), // Divider branco
+              ListTile(
+                title: Text('Cenas',
+                    style: TextStyle(color: Colors.white)), // Texto branco
+                onTap: () {
+                  Navigator.pushNamed(context, '/cenas');
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -715,6 +963,61 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
         return false;
       },
       child: Scaffold(
+        endDrawer: Drawer(
+          child: Container(
+            width: MediaQuery.of(context).size.width *
+                0.5, // Define o menu para abrir até o meio da página
+            color: Colors.black
+                .withOpacity(0.9), // Define o fundo preto com transparência
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: Colors.black
+                        .withOpacity(0.8), // Fundo preto para o header também
+                  ),
+                  child: Text(
+                    'Ambientes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  title: Text('Sala',
+                      style: TextStyle(color: Colors.white)), // Texto branco
+                  onTap: () {
+                    Navigator.pushNamed(context, '/sala_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Suíte Master',
+                      style: TextStyle(color: Colors.white)), // Texto branco
+                  onTap: () {
+                    Navigator.pushNamed(context, '/suite_master_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Cozinha',
+                      style: TextStyle(color: Colors.white)), // Texto branco
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cozinha_lamp');
+                  },
+                ),
+                Divider(color: Colors.white), // Divider branco
+                ListTile(
+                  title: Text('Cenas',
+                      style: TextStyle(color: Colors.white)), // Texto branco
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cenas');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         body: Stack(
           children: [
             // Container para o background
@@ -752,6 +1055,18 @@ class _SalaLampScreenState extends State<SalaLampScreen> {
                     Navigator.pushReplacementNamed(context, '/ambientes');
                   },
                 ),
+                actions: [
+                  Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        icon: Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             // Centraliza o conteúdo e remove o espaço extra
@@ -932,92 +1247,63 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
 
   Future<void> sendCommand(String command, String value) async {
     String url = generateCommandUrl(command, value);
+    print(url);
 
     final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
-      print(
-          'Comando enviado com sucessoXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
+      print('Comando enviado com sucesso.!!!');
     } else {
-      print(
-          'Falha ao enviar comandoXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.');
+      print('XXX Falha ao enviar comando XXX.');
     }
   }
 
   String generateCommandUrl(String command, String value) {
-    // Ajuste a URL de acordo com suas necessidades
+    const String link = 'https://cacmd2.controlartcloud.com.br/p2pca?tc=';
+    const String key_controlart =
+        'teste/'; // lembrar de colocar barra '/' no final.
+
     Map<String, String> commandUrls = {
-      'power_on': 'https://your-server.com/command_power_on',
-      'power_off': 'https://your-server.com/command_power_off',
+      'power_on': 'comando padrão power_on',
+      'power_off': 'comando padrão power_off',
       // Comandos de temperatura para modo frio
-      'temperature_16_cool':
-          'https://your-server.com/command_temperature_16_cool',
-      'temperature_17_cool':
-          'https://your-server.com/command_temperature_17_cool',
-      'temperature_18_cool':
-          'https://your-server.com/command_temperature_18_cool',
-      'temperature_19_cool':
-          'https://your-server.com/command_temperature_19_cool',
-      'temperature_20_cool':
-          'https://your-server.com/command_temperature_20_cool',
-      'temperature_21_cool':
-          'https://your-server.com/command_temperature_21_cool',
-      'temperature_22_cool':
-          'https://your-server.com/command_temperature_22_cool',
-      'temperature_23_cool':
-          'https://your-server.com/command_temperature_23_cool',
-      'temperature_24_cool':
-          'https://your-server.com/command_temperature_24_cool',
-      'temperature_25_cool':
-          'https://your-server.com/command_temperature_25_cool',
-      'temperature_26_cool':
-          'https://your-server.com/command_temperature_26_cool',
-      'temperature_27_cool':
-          'https://your-server.com/command_temperature_27_cool',
-      'temperature_28_cool':
-          'https://your-server.com/command_temperature_28_cool',
-      'temperature_29_cool':
-          'https://your-server.com/command_temperature_29_cool',
-      'temperature_30_cool':
-          'https://your-server.com/command_temperature_30_cool',
+      'temperature_16_cool': 'comando padrão 16 cool',
+      'temperature_17_cool': 'comando padrão 17 cool',
+      'temperature_18_cool': 'comando padrão 18 cool',
+      'temperature_19_cool': 'comando padrão 19 cool',
+      'temperature_20_cool': 'comando padrão 20 cool',
+      'temperature_21_cool': 'comando padrão 21 cool',
+      'temperature_22_cool': 'comando padrão 22 cool',
+      'temperature_23_cool': 'comando padrão 23 cool',
+      'temperature_24_cool': 'comando padrão 24 cool',
+      'temperature_25_cool': 'comando padrão 25 cool',
+      'temperature_26_cool': 'comando padrão 26 cool',
+      'temperature_27_cool': 'comando padrão 27 cool',
+      'temperature_28_cool': 'comando padrão 28 cool',
+      'temperature_29_cool': 'comando padrão 29 cool',
+      'temperature_30_cool': 'comando padrão 30 cool',
       // Comandos de temperatura para modo quente
-      'temperature_16_hot':
-          'https://cacmd2.controlartcloud.com.br/p2pca?tc=xvaOR8v4gs8zJaWIYr/sendir,1:8,1,38000,1,1,125,63,15,15,15,15,15,',
-      'temperature_17_hot':
-          'https://your-server.com/command_temperature_17_hot',
-      'temperature_18_hot':
-          'https://your-server.com/command_temperature_18_hot',
-      'temperature_19_hot':
-          'https://your-server.com/command_temperature_19_hot',
-      'temperature_20_hot':
-          'https://your-server.com/command_temperature_20_hot',
-      'temperature_21_hot':
-          'https://your-server.com/command_temperature_21_hot',
-      'temperature_22_hot':
-          'https://your-server.com/command_temperature_22_hot',
-      'temperature_23_hot':
-          'https://your-server.com/command_temperature_23_hot',
-      'temperature_24_hot':
-          'https://your-server.com/command_temperature_24_hot',
-      'temperature_25_hot':
-          'https://your-server.com/command_temperature_25_hot',
-      'temperature_26_hot':
-          'https://your-server.com/command_temperature_26_hot',
-      'temperature_27_hot':
-          'https://your-server.com/command_temperature_27_hot',
-      'temperature_28_hot':
-          'https://your-server.com/command_temperature_28_hot',
-      'temperature_29_hot':
-          'https://your-server.com/command_temperature_29_hot',
-      'temperature_30_hot':
-          'https://your-server.com/command_temperature_30_hot',
-      'fan_vel1': 'https://your-server.com/command_fan_vel1',
-      'fan_vel2': 'https://your-server.com/command_fan_vel2',
-      'fan_vel3': 'https://your-server.com/command_fan_vel3',
-      'fan_auto': 'https://your-server.com/command_fan_auto',
+      'temperature_16_hot': 'comando padrão 16 hot',
+      'temperature_17_hot': 'comando padrão 17 hot',
+      'temperature_18_hot': 'comando padrão 18 hot',
+      'temperature_19_hot': 'comando padrão 19 hot',
+      'temperature_20_hot': 'comando padrão 20 hot',
+      'temperature_21_hot': 'comando padrão 21 hot',
+      'temperature_22_hot': 'comando padrão 22 hot',
+      'temperature_23_hot': 'comando padrão 23 hot',
+      'temperature_24_hot': 'comando padrão 24 hot',
+      'temperature_25_hot': 'comando padrão 25 hot',
+      'temperature_26_hot': 'comando padrão 26 hot',
+      'temperature_27_hot': 'comando padrão 27 hot',
+      'temperature_28_hot': 'comando padrão 28 hot',
+      'temperature_29_hot': 'comando padrão 29 hot',
+      'temperature_30_hot': 'comando padrão 30 hot',
+      'fan_vel1': 'comando padrão fan vel1',
+      'fan_vel2': 'comando padrão fan vel2',
+      'fan_vel3': 'comando padrão fan vel3',
+      'fan_auto': 'comando padrão fan auto',
     };
 
-    return commandUrls['${command}_${value}'] ??
-        'https://your-server.com/command_default';
+    return '$link$key_controlart${commandUrls['${command}_${value}']}';
   }
 
   Widget buildButton(String label, VoidCallback onPressed,
@@ -1047,6 +1333,55 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
         return false;
       },
       child: Scaffold(
+        endDrawer: Drawer(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5,
+            color: Colors.black.withOpacity(0.9),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                  ),
+                  child: Text(
+                    'Ambientes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  title: Text('Sala', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/sala_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Suíte Master',
+                      style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/suite_master_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Cozinha', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cozinha_lamp');
+                  },
+                ),
+                Divider(color: Colors.white),
+                ListTile(
+                  title: Text('Cenas', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cenas');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         body: Stack(
           children: [
             Container(
@@ -1074,6 +1409,18 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                         context, '/ambientes', (route) => false);
                   },
                 ),
+                actions: [
+                  Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        icon: Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -1116,7 +1463,6 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                                     fontSize: 24, color: Colors.black),
                               ),
                               SizedBox(height: 20),
-                              // Ícone fixo do ventilador
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -1125,10 +1471,7 @@ class _SalaIceScreenState extends State<SalaIceScreen> {
                                     size: 40,
                                     color: Colors.black,
                                   ),
-                                  SizedBox(
-                                      width:
-                                          10), // Espaço entre ícone e ícones de vento
-                                  // Ícones de vento
+                                  SizedBox(width: 10),
                                   if (fanSpeed > 0 && fanSpeed < 4) ...[
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1604,14 +1947,62 @@ class SalaWindowScreen extends StatelessWidget {
         return false;
       },
       child: Scaffold(
+        endDrawer: Drawer(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5,
+            color: Colors.black.withOpacity(0.9),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                  ),
+                  child: Text(
+                    'Ambientes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  title: Text('Sala', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/sala_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Suíte Master',
+                      style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/suite_master_lamp');
+                  },
+                ),
+                ListTile(
+                  title: Text('Cozinha', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cozinha_lamp');
+                  },
+                ),
+                Divider(color: Colors.white),
+                ListTile(
+                  title: Text('Cenas', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/cenas');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         body: Stack(
           children: [
             // Container para o background
             Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage(
-                      'assets/images/background.jpg'), // Substitua pelo caminho da sua imagem
+                  image: AssetImage('assets/images/background.jpg'),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -1626,13 +2017,12 @@ class SalaWindowScreen extends StatelessWidget {
                   'CORTINAS SALA',
                   style: TextStyle(
                     fontSize: 20,
-                    color: Colors.white, // Cor do texto
+                    color: Colors.white,
                   ),
                 ),
-                centerTitle: true, // Centraliza o título
-                backgroundColor:
-                    Colors.transparent, // Torna o fundo do AppBar transparente
-                elevation: 0, // Remove a sombra
+                centerTitle: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
                 leading: IconButton(
                   icon: Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () {
@@ -1640,6 +2030,18 @@ class SalaWindowScreen extends StatelessWidget {
                         context, '/ambientes', (route) => false);
                   },
                 ),
+                actions: [
+                  Builder(
+                    builder: (BuildContext context) {
+                      return IconButton(
+                        icon: Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             // Conteúdo da tela
@@ -1648,20 +2050,18 @@ class SalaWindowScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Espaço entre o título e os controles das cortinas
                   SizedBox(height: 80),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        buildCortinaControl(0, 'Cortina 1'),
-                        buildCortinaControl(1, 'Cortina 2'),
-                        buildCortinaControl(2, 'teste 3'),
-                        buildCortinaControl(3, 'Cortina 4'),
+                        buildCortinaControl('cortina_1', 'Cortina 1'),
+                        buildCortinaControl('cortina_2', 'Cortina 2'),
+                        buildCortinaControl('cortina_3', 'Cortina 3'),
+                        buildCortinaControl('cortina_4', 'Cortina 4'),
                       ],
                     ),
                   ),
-                  // Espaço entre os controles e o rodapé
                   SizedBox(height: 60),
                 ],
               ),
@@ -1692,7 +2092,8 @@ class SalaWindowScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.pushReplacementNamed(context, '/sala_lamp');
                         },
-                        child: Icon(Icons.lightbulb_outline),
+                        child:
+                            Icon(Icons.lightbulb_outline, color: Colors.black),
                         backgroundColor: Colors.transparent,
                         elevation: 0,
                         highlightElevation: 0,
@@ -1703,7 +2104,7 @@ class SalaWindowScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.pushReplacementNamed(context, '/sala_ice');
                         },
-                        child: Icon(Icons.ac_unit),
+                        child: Icon(Icons.ac_unit, color: Colors.black),
                         backgroundColor: Colors.transparent,
                         elevation: 0,
                         highlightElevation: 0,
@@ -1715,7 +2116,7 @@ class SalaWindowScreen extends StatelessWidget {
                           Navigator.pushReplacementNamed(
                               context, '/sala_window');
                         },
-                        child: Icon(Icons.curtains_closed),
+                        child: Icon(Icons.curtains_closed, color: Colors.black),
                         backgroundColor: Colors.transparent,
                         elevation: 0,
                         highlightElevation: 0,
@@ -1731,118 +2132,191 @@ class SalaWindowScreen extends StatelessWidget {
     );
   }
 
-  Widget buildCortinaControl(int index, String cortinaNome) {
+  Widget buildCortinaControl(String cortinaNome, String cortinaLabel) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          vertical: 12.0), // Aumenta o espaço entre os itens
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            cortinaNome,
+            cortinaLabel,
             style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: const Color.fromARGB(
-                    255, 255, 255, 255)), // Cor do texto branca
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color.fromARGB(255, 255, 255, 255),
+            ),
           ),
           Row(
-            mainAxisSize: MainAxisSize.min, // Para não expandir a linha
+            mainAxisSize: MainAxisSize.min,
             children: [
               ElevatedButton(
-                  onPressed: () {
-                    sendCommand(index, cortinaNome, 'abrir');
-                  },
-                  child: Text('Abrir'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(
-                        255, 56, 103, 141), // Cor de fundo dos botões
-                    foregroundColor: Colors.white, // Cor do texto dos botões
-                    padding:
-                        EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  )),
+                onPressed: () {
+                  sendCommand(cortinaNome, 'abrir');
+                },
+                child: Text('Abrir'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(255, 56, 103, 141),
+                  foregroundColor: Colors.white,
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                ),
+              ),
               SizedBox(width: 8),
               ElevatedButton(
-                  onPressed: () {
-                    sendCommand(index, cortinaNome, 'fechar');
-                  },
-                  child: Text('Fechar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(
-                        255, 56, 103, 141), // Cor de fundo dos botões
-                    foregroundColor: Colors.white, // Cor do texto dos botões
-                    padding:
-                        EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  )),
+                onPressed: () {
+                  sendCommand(cortinaNome, 'fechar');
+                },
+                child: Text('Fechar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(255, 56, 103, 141),
+                  foregroundColor: Colors.white,
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                ),
+              ),
               SizedBox(width: 8),
               ElevatedButton(
-                  onPressed: () {
-                    sendCommand(index, cortinaNome, 'parar');
-                  },
-                  child: Text('Parar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(
-                        255, 56, 103, 141), // Cor de fundo dos botões
-                    foregroundColor: Colors.white, // Cor do texto dos botões
-                    padding:
-                        EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  )),
+                onPressed: () {
+                  sendCommand(cortinaNome, 'parar');
+                },
+                child: Text('Parar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(255, 56, 103, 141),
+                  foregroundColor: Colors.white,
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
       ),
     );
   }
+}
 
-  void sendCommand(int index, String cortinaNome, String acao) async {
-    String comando = generateCommand(index, acao);
+Widget buildCortinaControl(String cortinaNome, String cortinaLabel) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(
+        vertical: 12.0), // Aumenta o espaço entre os itens
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          cortinaLabel,
+          style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color.fromARGB(
+                  255, 255, 255, 255)), // Cor do texto branca
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min, // Para não expandir a linha
+          children: [
+            ElevatedButton(
+                onPressed: () {
+                  sendCommand(cortinaNome, 'abrir');
+                },
+                child: Text('Abrir'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(
+                      255, 56, 103, 141), // Cor de fundo dos botões
+                  foregroundColor: Colors.white, // Cor do texto dos botões
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                )),
+            SizedBox(width: 8),
+            ElevatedButton(
+                onPressed: () {
+                  sendCommand(cortinaNome, 'fechar');
+                },
+                child: Text('Fechar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(
+                      255, 56, 103, 141), // Cor de fundo dos botões
+                  foregroundColor: Colors.white, // Cor do texto dos botões
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                )),
+            SizedBox(width: 8),
+            ElevatedButton(
+                onPressed: () {
+                  sendCommand(cortinaNome, 'parar');
+                },
+                child: Text('Parar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(
+                      255, 56, 103, 141), // Cor de fundo dos botões
+                  foregroundColor: Colors.white, // Cor do texto dos botões
+                  padding:
+                      EdgeInsets.symmetric(vertical: 13.0, horizontal: 20.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                )),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
-    // Envia o comando remotamente
-    final response = await http.get(Uri.parse(comando));
-    if (response.statusCode == 200) {
-      print('Comando enviado remotamente com sucesso!');
-    } else {
-      print('Falha ao enviar comando remotamente.');
-    }
+void sendCommand(String cortinaNome, String acao) async {
+  String comando = generateCommand(cortinaNome, acao);
+
+  // Envia o comando remotamente
+  final response = await http.get(Uri.parse(comando));
+  print(comando);
+  if (response.statusCode == 200) {
+    print('Comando enviado remotamente com sucesso!');
+  } else {
+    print('Falha ao enviar comando remotamente.');
   }
+}
 
-  String generateCommand(int index, String acao) {
-    // Defina aqui os comandos específicos para cada cortina e ação
-    Map<int, Map<String, String>> comandos = {
-      0: {
-        'abrir':
-            'https://cacmd2.controlartcloud.com.br/p2pca?tc=RHhIQ1oiU2uYQPscTQ/sendir,1:1,1,38616,67,16,2016,24,16,24,16,67,16,24,16,2000', //controlart do carlos cruzich
-        'fechar': 'http://your-server.com/comando_fechar_cortina_1',
-        'parar': 'http://your-server.com/comando_parar_cortina_1',
-      },
-      1: {
-        'abrir': 'http://your-server.com/comando_abrir_cortina_2',
-        'fechar': 'http://your-server.com/comando_fechar_cortina_2',
-        'parar': 'http://your-server.com/comando_parar_cortina_2',
-      },
-      2: {
-        'abrir': 'http://your-server.com/comando_abrir_cortina_3',
-        'fechar': 'http://your-server.com/comando_fechar_cortina_3',
-        'parar': 'http://your-server.com/comando_parar_cortina_3',
-      },
-      3: {
-        'abrir': 'http://your-server.com/comando_abrir_cortina_4',
-        'fechar': 'http://your-server.com/comando_fechar_cortina_4',
-        'parar': 'http://your-server.com/comando_parar_cortina_4',
-      },
-    };
+String generateCommand(String cortinaNome, String acao) {
+  const String linkPrefix = 'https://cacmd2.controlartcloud.com.br/p2pca?tc=';
+  const String keyPrefix = 'teste/'; // lembrar de colocar a barra '/' no final
 
-    return comandos[index]?[acao] ?? 'http://your-server.com/comando_padrao';
-  }
+  Map<String, Map<String, String>> comandos = {
+    'cortina_1': {
+      'abrir': 'comando_abrir_cortina_1',
+      'fechar': 'comando_fechar_cortina_1',
+      'parar': 'comando_parar_cortina_1',
+    },
+    'cortina_2': {
+      'abrir': 'comando_abrir_cortina_2',
+      'fechar': 'comando_fechar_cortina_2',
+      'parar': 'comando_parar_cortina_2',
+    },
+    'cortina_3': {
+      'abrir': 'comando_abrir_cortina_3',
+      'fechar': 'comando_fechar_cortina_3',
+      'parar': 'comando_parar_cortina_3',
+    },
+    'cortina_4': {
+      'abrir': 'comando_abrir_cortina_4',
+      'fechar': 'comando_fechar_cortina_4',
+      'parar': 'comando_parar_cortina_4',
+    },
+  };
+
+  return '$linkPrefix$keyPrefix${comandos[cortinaNome]?[acao] ?? 'comando_padrao'}';
 }
 
 class CozinhaWindowScreen extends StatelessWidget {
